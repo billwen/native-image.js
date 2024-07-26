@@ -5,7 +5,8 @@
         "cflags_cc!": [ "-fno-exceptions" ],
         "sources": [
             "src/main.cc",
-            "src/hello.cc"
+            "src/hello.cc",
+            "src/actual_class.cc"
         ],
         'include_dirs': [
             "<!@(node -p \"require('node-addon-api').include\")"
