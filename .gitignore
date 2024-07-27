@@ -132,6 +132,7 @@ dist
 #
 # Gang
 #
+libvips
 build
 .idea
 .vscode
