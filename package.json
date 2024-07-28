@@ -1,5 +1,5 @@
 {
-  "name": "js-lib-vips",
+  "name": "@billwen/js-lib-vips",
   "version": "0.0.1",
   "description": "A nodejs module by libVips",
   "main": "index.js",
@@ -7,15 +7,24 @@
   "scripts": {
     "build": "node-gyp rebuild",
     "clean": "node-gyp clean",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "test": "node test/js/js-lib-vips-test.js"
   },
-  "keywords": [],
+  "keywords": [
+    "native",
+    "node-addon-api",
+    "libvips"
+  ],
   "author": "Gang Wen(gang.wen@gmail.com)",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "license": "ISC",
   "devDependencies": {
     "node-gyp": "^10.2.0"
   },
   "dependencies": {
+    "bindings": "^1.5.0",
     "detect-libc": "^2.0.3",
     "node-addon-api": "^8.1.0"
   }
