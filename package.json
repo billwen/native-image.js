@@ -1,6 +1,6 @@
 {
   "name": "@billwen/js-lib-vips",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A nodejs module by libVips",
   "main": "index.js",
   "gypfile": true,
