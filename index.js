@@ -1,7 +1,9 @@
 const { buildPlatformArch } = require('./install/check')
 
 const runtimePlatform = buildPlatformArch();
+const vips = require('bindings')({
+    bindings: `js-lib-vips-${runtimePlatform}`,
+    compiled: 'build',
+});
 
-const vips = require('bindings')(`js-lib-vips-${runtimePlatform}.node`);
-
-module.export = vips
+module.exports = vips

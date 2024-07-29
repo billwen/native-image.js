@@ -7,8 +7,7 @@
   "scripts": {
     "build": "node-gyp rebuild",
     "clean": "node-gyp clean",
-    "dev": "node index.js",
-    "test": "node test/js/js-lib-vips-test.js"
+    "dev": "node test/js/js-lib-vips-test.js"
   },
   "keywords": [
     "native",
