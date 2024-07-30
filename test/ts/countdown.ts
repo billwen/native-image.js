@@ -10,13 +10,13 @@ if (!fs.existsSync(outputFolderPath)) {
 }
 
 const outputFileName = "countdown.gif";
-const outputFilePath = path.resolve(outputFolderPath, outputFileName);
+const outputFilePath: string = path.resolve(outputFolderPath, outputFileName);
 
 const countdownOptions: CountdownOptions = {
     width: 100,
     height: 100,
     bgColor: "#616161",
-    outputFile: outputFilePath
+    outFilePath: outputFilePath
 }
 
 console.log("Testing countdown: ", vips.countdown(countdownOptions));

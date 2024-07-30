@@ -4,5 +4,5 @@ export declare type CountdownOptions = {
   width: number;
   height: number;
   bgColor: string;
-  outputFile: string;  
+  outFilePath: string;
 };

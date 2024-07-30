@@ -27,7 +27,7 @@ namespace js_lib_vips {
     /**
      * Pure C++ functions
      */
-    std::string countdown();
+    std::string countdown(const CountdownOptions& opts);
 
     /**
      * Functions exposed to JS

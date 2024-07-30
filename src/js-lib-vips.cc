@@ -10,9 +10,9 @@ Napi::String js_lib_vips::Countdown(const Napi::CallbackInfo& info) {
     }
 
     Napi::Object options = info[0].As<Napi::Object>();
-    CountdownOptions opts = ParseOptions(options);
+    js_lib_vips::CountdownOptions opts = ParseOptions(options);
 
-    const std::string message = countdown();
+    const std::string message = countdown(opts);
     Napi::String returnValue = Napi::String::New(env, message);
 
     return returnValue;
@@ -21,11 +21,32 @@ Napi::String js_lib_vips::Countdown(const Napi::CallbackInfo& info) {
 js_lib_vips::CountdownOptions js_lib_vips::ParseOptions(const Napi::Object& options) {
     js_lib_vips::CountdownOptions opts;
 
-    Napi::Value message = options.Get("message");
-    if (message.IsString()) {
-        opts.bgColor = message.As<Napi::String>().Utf8Value();
+    Napi::Value outFilePath = options.Get("outFilePath");
+    if (outFilePath.IsString()) {
+        opts.outFilePath = outFilePath.As<Napi::String>().Utf8Value();
     } else {
-        Napi::TypeError::New(options.Env(), "message expected").ThrowAsJavaScriptException();
+        Napi::TypeError::New(options.Env(), "missing outFilePath").ThrowAsJavaScriptException();
+    }
+
+    Napi::Value width = options.Get("width");
+    if (width.IsNumber()) {
+        opts.width = width.As<Napi::Number>().Int32Value();
+    } else {
+        Napi::TypeError::New(options.Env(), "missing width").ThrowAsJavaScriptException();
+    }
+
+    Napi::Value height = options.Get("height");
+    if (height.IsNumber()) {
+        opts.height = height.As<Napi::Number>().Int32Value();
+    } else {
+        Napi::TypeError::New(options.Env(), "missing height").ThrowAsJavaScriptException();
+    }
+
+    Napi::Value bgColor = options.Get("bgColor");
+    if (bgColor.IsString()) {
+        opts.bgColor = bgColor.As<Napi::String>().Utf8Value();
+    } else {
+        Napi::TypeError::New(options.Env(), "missing bgColor").ThrowAsJavaScriptException();
     }
 
     return opts;
