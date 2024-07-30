@@ -12,7 +12,8 @@
                 "src/main.cc",
                 "src/hello.cc",
                 "src/actual_class.cc",
-                "src/js-lib-vips.cc"
+                "src/js-lib-vips.cc",
+                "src/countdown.cc",
             ],
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")",

@@ -137,5 +137,6 @@ build
 .idea
 .vscode
 .npmrc
+outputs
 
 

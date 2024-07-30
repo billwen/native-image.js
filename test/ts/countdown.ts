@@ -1,15 +1,6 @@
-const path = require("node:path");
-const fs = require("node:fs");
-const vips = require("../../index.js");
-
-console.log('js-lib-vips', vips);
-
-console.log("result", vips.hello());
-console.log("add", vips.add(12,13));
-
-const sampleClass = new vips.ActualClass(4.3);
-console.log('Testing class initial value: ', sampleClass.getValue());
-console.log("After adding 3.3 ", sampleClass.add(3.3));
+import fs from 'node:fs';
+import path from 'node:path';
+import vips, { CountdownOptions } from '../../index';
 
 // Prepare output folder
 const outputFolder = "../../output";
@@ -21,7 +12,7 @@ if (!fs.existsSync(outputFolderPath)) {
 const outputFileName = "countdown.gif";
 const outputFilePath = path.resolve(outputFolderPath, outputFileName);
 
-const countdownOptions = {
+const countdownOptions: CountdownOptions = {
     width: 100,
     height: 100,
     bgColor: "#616161",
