@@ -10,7 +10,7 @@ export declare type CountdownOptions = {
 export declare class NativeImage {
   constructor();
 
-  static createEmpty(width: number, height: number, bgColor?: string): NativeImage;
+  static createImage(width: number, height: number, bgColor?: string): NativeImage;
 
   countdown(): string;
 }

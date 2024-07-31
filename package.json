@@ -5,7 +5,8 @@
   "main": "index.js",
   "gypfile": true,
   "scripts": {
-    "build": "node-gyp rebuild",
+    "rebuild": "node-gyp rebuild",
+    "build": "node-gyp configure build",
     "clean": "node-gyp clean",
     "predev": "npm run build",
     "dev": "node test/js/js-lib-vips-test.js",

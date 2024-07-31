@@ -20,4 +20,6 @@ const countdownOptions: CountdownOptions = {
 }
 
 const image = new NativeImage();
+const emptyImage = NativeImage.createImage(countdownOptions.width, countdownOptions.height, countdownOptions.bgColor);
+
 console.log("Testing countdown: ", image.countdown());

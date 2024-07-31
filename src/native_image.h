@@ -25,17 +25,19 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Init function for setting the export key to JS
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
-    static Napi::Object CreateEmpty(Napi::Env env, Napi::Value arg);
+    static Napi::Value CreateImage(const Napi::CallbackInfo& info);
 
     // Constructor
     NativeImage(const Napi::CallbackInfo& info);
 
     private:
-    // reference to store the class definition that needs to be exported to JS
-    static Napi::FunctionReference constructor;
-
     // wrapped functions
     Napi::Value Countdown(const Napi::CallbackInfo& info);
+
+    // create an empty image
+    static vips::VImage* _createImage(int width, int height, std::string bgColor);
+
+    void _setImage(const vips::VImage *image);
 
     // Internal instance of an image object
     vips::VImage *image_;
