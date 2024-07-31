@@ -6,3 +6,11 @@ export declare type CountdownOptions = {
   bgColor: string;
   outFilePath: string;
 };
+
+export declare class NativeImage {
+  constructor();
+
+  static createEmpty(width: number, height: number, bgColor?: string): NativeImage;
+
+  countdown(): string;
+}

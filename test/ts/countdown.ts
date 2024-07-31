@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import vips, { CountdownOptions } from '../../index';
+import {CountdownOptions, NativeImage} from '../../index';
 
 // Prepare output folder
 const outputFolder = "../../output";
@@ -19,4 +19,5 @@ const countdownOptions: CountdownOptions = {
     outFilePath: outputFilePath
 }
 
-console.log("Testing countdown: ", vips.countdown(countdownOptions));
+const image = new NativeImage();
+console.log("Testing countdown: ", image.countdown());
