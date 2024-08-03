@@ -4,13 +4,6 @@ const vips = require("../../index.js");
 
 console.log('js-lib-vips', vips);
 
-console.log("result", vips.hello());
-console.log("add", vips.add(12,13));
-
-const sampleClass = new vips.ActualClass(4.3);
-console.log('Testing class initial value: ', sampleClass.getValue());
-console.log("After adding 3.3 ", sampleClass.add(3.3));
-
 // Prepare output folder
 const outputFolder = "../../output";
 const outputFolderPath = path.resolve(__dirname, outputFolder);
@@ -25,7 +18,9 @@ const countdownOptions = {
     width: 100,
     height: 100,
     bgColor: "#616161",
-    outputFile: outputFilePath
+    outFilePath: outputFilePath
 }
 
 console.log("Testing countdown: ", vips.countdown(countdownOptions));
+
+const image = vips.NativeImage.createSRGBImage(countdownOptions);

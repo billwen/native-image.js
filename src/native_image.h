@@ -4,43 +4,53 @@
 #include <napi.h>
 #include <vips/vips8>
 
+typedef struct {
+    int width;
+    int height;
+    std::string bgColor;
+} CreationOptions;
+
+typedef struct {
+    // Image width
+    int width;
+
+    // Image height
+    int height;
+
+    // Background color, e.g. "#FF0000"
+    std::string bgColor;
+
+    // output file path
+    std::string outFilePath;
+} CountdownOptions;
+
 class NativeImage: public Napi::ObjectWrap<NativeImage> {
-
-    struct CountdownOptions {
-        // Image width
-        int width;
-
-        // Image height
-        int height;
-
-        // Background color, e.g. "#FF0000"
-        std::string bgColor;
-
-        // output file path
-        std::string outFilePath;
-    };
-
-    public:
+  public:
+    // Constructor
+    NativeImage(const Napi::CallbackInfo& info);
+    ~NativeImage();
 
     // Init function for setting the export key to JS
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
-    static Napi::Value CreateImage(const Napi::CallbackInfo& info);
-
-    // Constructor
-    NativeImage(const Napi::CallbackInfo& info);
-
-    private:
+  private:
+    // Create an empty image with background color
+    static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
     // wrapped functions
     Napi::Value Countdown(const Napi::CallbackInfo& info);
 
     // create an empty image
-    static vips::VImage* _createImage(int width, int height, std::string bgColor);
+    static vips::VImage _createImage(const CreationOptions options);
 
-    void _setImage(const vips::VImage *image);
+    //
+    // Help functions
+    //
+    static CreationOptions ParseCreateOptions(const Napi::Object& options);
 
+    //
     // Internal instance of an image object
-    vips::VImage *image_;
+    //
+    vips::VImage image_;
 
 };
 

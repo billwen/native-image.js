@@ -1,13 +1,9 @@
 /* cppsrc/main.cpp */
 #include <napi.h>
-#include "hello.h"
-#include "actual_class.h"
 #include "js-lib-vips.h"
 #include "native_image.h"
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-  js_vips::Init(env, exports);
-  ActualClassWrapped::Init(env, exports);
   NativeImage::Init(env, exports);
   return js_lib_vips::InitLibVips(env, exports);
 }

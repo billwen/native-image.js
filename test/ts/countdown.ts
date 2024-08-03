@@ -19,7 +19,6 @@ const countdownOptions: CountdownOptions = {
     outFilePath: outputFilePath
 }
 
-const image = new NativeImage();
-const emptyImage = NativeImage.createImage(countdownOptions.width, countdownOptions.height, countdownOptions.bgColor);
+// const image = new NativeImage();
+const emptyImage = NativeImage.createSRGBImage(countdownOptions);
 
-console.log("Testing countdown: ", image.countdown());

@@ -1,16 +1,19 @@
 export declare function countdown(options: CountdownOptions): void;
 
-export declare type CountdownOptions = {
+export declare type CreationOptions = {
   width: number;
   height: number;
   bgColor: string;
+};
+
+export declare type CountdownOptions = CreationOptions & {
   outFilePath: string;
 };
 
 export declare class NativeImage {
-  constructor();
+  constructor(filePath: string);
 
-  static createImage(width: number, height: number, bgColor?: string): NativeImage;
+  static createSRGBImage(opts: CreationOptions): NativeImage;
 
   countdown(): string;
 }
