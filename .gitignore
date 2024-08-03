@@ -138,5 +138,5 @@ build
 .vscode
 .npmrc
 outputs
-
-
+output
+.DS_Store
