@@ -57,9 +57,6 @@ js_lib_vips::CountdownOptions js_lib_vips::ParseOptions(const Napi::Object& opti
 */
 Napi::Object js_lib_vips::InitLibVips(Napi::Env env, Napi::Object exports) {
 
-    if (VIPS_INIT ("js-lib-vips")) 
-        vips_error_exit (NULL);
-
     exports.Set("countdown", Napi::Function::New(env, js_lib_vips::Countdown));
 
     return exports;

@@ -4,6 +4,9 @@
 #include "native_image.h"
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+  if (VIPS_INIT ("js-lib-vips")) 
+    vips_error_exit (NULL);
+
   NativeImage::Init(env, exports);
   return js_lib_vips::InitLibVips(env, exports);
 }

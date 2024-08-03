@@ -36,6 +36,12 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
   private:
     // Create an empty image with background color
     static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
+
+    Napi::Value DrawText(const Napi::CallbackInfo& info);
+
+    // Save the image to a file
+    Napi::Value Save(const Napi::CallbackInfo& info);
+
     // wrapped functions
     Napi::Value Countdown(const Napi::CallbackInfo& info);
 
@@ -46,6 +52,7 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Help functions
     //
     static CreationOptions ParseCreateOptions(const Napi::Object& options);
+    static std::vector<u_char> htmlHexStringToARGB(const std::string& hex);
 
     //
     // Internal instance of an image object

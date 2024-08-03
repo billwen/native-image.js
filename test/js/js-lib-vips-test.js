@@ -14,8 +14,11 @@ if (!fs.existsSync(outputFolderPath)) {
 const outputFileName = "countdown.gif";
 const outputFilePath = path.resolve(outputFolderPath, outputFileName);
 
+const fontFilePath = path.resolve(__dirname, "../../output/fonts/DancingScript-VariableFont_wght.ttf");
+const font = '"Dancing Script" 400 48px';
+
 const countdownOptions = {
-    width: 100,
+    width: 400,
     height: 100,
     bgColor: "#616161",
     outFilePath: outputFilePath
@@ -24,3 +27,13 @@ const countdownOptions = {
 console.log("Testing countdown: ", vips.countdown(countdownOptions));
 
 const image = vips.NativeImage.createSRGBImage(countdownOptions);
+
+const textOptions = {
+    font,
+    fontFile: fontFilePath,
+    color: "#0f0",
+}
+
+image.drawText("Hello, libVips!", 100, 20, textOptions);
+
+image.save(outputFilePath);
