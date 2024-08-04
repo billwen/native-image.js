@@ -127,6 +127,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
             if (!options.Get("font").IsString()) {
                 Napi::TypeError::New(env, "Invalid font").ThrowAsJavaScriptException();
             }
+//            std::cout << "font: " << options.Get("font").As<Napi::String>().Utf8Value() << std::endl;
             opts->set("font", options.Get("font").As<Napi::String>().Utf8Value().c_str());
         }
 
@@ -134,6 +135,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
             if (!options.Get("fontFile").IsString()) {
                 Napi::TypeError::New(env, "Invalid fontFile").ThrowAsJavaScriptException();
             }
+//            std::cout << "fontFile: " << options.Get("fontFile").As<Napi::String>().Utf8Value() << std::endl;
             opts->set("fontfile", options.Get("fontFile").As<Napi::String>().Utf8Value().c_str());
         }
 
@@ -156,6 +158,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
     // this renders the text to a one-band image ... set width to the pixels across
     // of the area we want to render to to have it break lines for you
     VImage textImage = VImage::text(text.c_str(), opts);
+    std::cout << "textImage width: " << textImage.width() << " height: " << textImage.height() << std::endl;
     
     // make a constant image the size of $text, but with every pixel red ... tag it
     // as srgb
@@ -199,28 +202,45 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     Napi::HandleScope scope(env);
 
+//     # the input images
+// # assume these are all the same size
+// images = [pyvips.Image.new_from_file(filename, access="sequential")
+//           for filename in sys.argv[2:]]
+
+// animation = images[0].pagejoin(images[1:])
+
+// # frame delays are in milliseconds ... 300 is pretty slow!
+// delay_array = [300] * len(images)
+// animation.set_type(pyvips.GValue.array_int_type, "delay", delay_array)
+
+// print(f"writing {sys.argv[1]} ...")
+// animation.write_to_file(sys.argv[1])
+
+
+
     return Napi::String::New(env, "Hello NativeImage");
 }
 
 // create an empty image
-vips::VImage NativeImage::_createImage(const CreationOptions options) {
+VImage NativeImage::_createImage(const CreationOptions options) {
     std::vector<u_char> bgColor = htmlHexStringToARGB(options.bgColor);
 
     // Make a 1x1 pixel with the red channel and cast it to provided format.
-    vips::VImage redChannel = vips::VImage::new_from_memory(&bgColor[1], 1, 1, 1,1, VipsBandFormat::VIPS_FORMAT_UCHAR);
-    vips::VImage pixel = vips::VImage::black(1, 1).add(redChannel).cast(VipsBandFormat::VIPS_FORMAT_UCHAR);
+    u_char bgR[] = {bgColor[1]};
+    VImage redChannel = VImage::new_from_memory(bgR, 1, 1, 1,1, VipsBandFormat::VIPS_FORMAT_UCHAR);
+    VImage pixel = VImage::black(1, 1).add(redChannel).cast(VipsBandFormat::VIPS_FORMAT_UCHAR);
 
     // Extend this 1x1 pixel to match the origin image dimensions
-    vips::VImage image = pixel.embed(0, 0, options.width, options.height, VImage::option()->set("extend", VIPS_EXTEND_COPY));
+    VImage image = pixel.embed(0, 0, options.width, options.height, VImage::option()->set("extend", VIPS_EXTEND_COPY));
 
     // Ensure that the interpretation of the image is set.
-    vips::VImage imageInterpreted = image.copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
+    VImage imageInterpreted = image.copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
 
     // Bandwise join the rest of the channels including the alpha channel.
-    const double dg = bgColor[2];
-    const double db = bgColor[3];
-    const double da = bgColor[0];
-    vips::VImage imageJoined = imageInterpreted.bandjoin({dg, db, da});
+    std::cout << "bgColor[1]: " << (double)bgColor[1] << " bgColor[2]: " << (double)bgColor[2] << " bgColor[3]: " << (double)bgColor[3] << std::endl;
+
+    const std::vector<double> chs = {(double)bgColor[2], (double)bgColor[3]};
+    VImage imageJoined = imageInterpreted.bandjoin(chs);
 
     return imageJoined;
 }
@@ -312,4 +332,10 @@ std::vector<u_char> NativeImage::htmlHexStringToARGB(const std::string& hex) {
     u_char blue = std::stoi(b, nullptr, 16);
 
     return {alpha, red, green, blue};
+}
+
+int NativeImage::renderCountdown(const CountdownOptions options) {
+    VImage image = _createImage({options.width, options.height, options.bgColor});
+
+    return 0;
 }

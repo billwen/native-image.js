@@ -15,12 +15,12 @@ const outputFileName = "countdown.gif";
 const outputFilePath = path.resolve(outputFolderPath, outputFileName);
 
 const fontFilePath = path.resolve(__dirname, "../../output/fonts/DancingScript-VariableFont_wght.ttf");
-const font = '"Dancing Script" 400 48px';
+const font = 'Dancing Script bold 128px';
 
 const countdownOptions = {
     width: 400,
     height: 100,
-    bgColor: "#616161",
+    bgColor: "#667788",
     outFilePath: outputFilePath
 }
 

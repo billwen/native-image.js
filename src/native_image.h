@@ -48,6 +48,8 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // create an empty image
     static vips::VImage _createImage(const CreationOptions options);
 
+    int renderCountdown(const CountdownOptions options);
+
     //
     // Help functions
     //
