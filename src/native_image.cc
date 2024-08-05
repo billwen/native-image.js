@@ -18,7 +18,8 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
         std::cout << "NativeImage object" << std::endl;
         Napi::Object options = info[0].As<Napi::Object>();
         CreationOptions opts = ParseCreateOptions(options);
-        this->image_ = _createImage(opts);
+        this->image_ = createRGBImage(opts);
+ //       this->image_ = _createImage(opts);
     } else {
         Napi::TypeError::New(env, "Invalid arguments").ThrowAsJavaScriptException();
     }
@@ -32,9 +33,10 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "NativeImage", {
-        InstanceMethod<&NativeImage::Countdown>("countdown", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        StaticMethod<&NativeImage::Countdown>("countdown", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        StaticMethod<&NativeImage::Text>("text", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable))
     });
 
@@ -79,6 +81,18 @@ Napi::Value NativeImage::CreateSRGBImage(const Napi::CallbackInfo& info) {
     // JS class the constructor represents.
     Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
     Napi::Object obj = constructor->New({info[0]});
+    return scope.Escape(napi_value(obj)).ToObject();
+}
+
+Napi::Value NativeImage::Text(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    // Retrieve the instance data we stored during `Init()`. We only stored the
+    // constructor there, so we retrieve it here to create a new instance of the
+    // JS class the constructor represents.
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Object obj = constructor->New({});
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
@@ -136,7 +150,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
                 Napi::TypeError::New(env, "Invalid fontFile").ThrowAsJavaScriptException();
             }
 //            std::cout << "fontFile: " << options.Get("fontFile").As<Napi::String>().Utf8Value() << std::endl;
-            opts->set("fontfile", options.Get("fontFile").As<Napi::String>().Utf8Value().c_str());
+//            opts->set("fontfile", options.Get("fontFile").As<Napi::String>().Utf8Value().c_str());
         }
 
         if (options.Has("color")) {
@@ -218,7 +232,7 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
 
 
 
-    return Napi::String::New(env, "Hello NativeImage");
+    return Napi::Number::New(env, 0);
 }
 
 // create an empty image
@@ -226,9 +240,8 @@ VImage NativeImage::_createImage(const CreationOptions options) {
     std::vector<u_char> bgColor = htmlHexStringToARGB(options.bgColor);
 
     // Make a 1x1 pixel with the red channel and cast it to provided format.
-    u_char bgR[] = {bgColor[1]};
-    VImage redChannel = VImage::new_from_memory(bgR, 1, 1, 1,1, VipsBandFormat::VIPS_FORMAT_UCHAR);
-    VImage pixel = VImage::black(1, 1).add(redChannel).cast(VipsBandFormat::VIPS_FORMAT_UCHAR);
+    VImage redChannel = VImage::black(1,1) + bgColor[1];
+    VImage pixel = redChannel.cast(VipsBandFormat::VIPS_FORMAT_UCHAR);
 
     // Extend this 1x1 pixel to match the origin image dimensions
     VImage image = pixel.embed(0, 0, options.width, options.height, VImage::option()->set("extend", VIPS_EXTEND_COPY));
@@ -245,6 +258,37 @@ VImage NativeImage::_createImage(const CreationOptions options) {
     return imageJoined;
 }
 
+VImage NativeImage::createRGBImage(const CreationOptions options) {
+    std::vector<u_char> bgColor = htmlHexStringToARGB(options.bgColor);
+    std::vector<double> channels = {(double)bgColor[1], (double)bgColor[2], (double)bgColor[3]};
+
+    // full image.
+    VImage emptyImage = VImage::black(options.width,options.height, VImage::option()->set("bands", 3)) + channels;
+    VImage formatted = emptyImage.cast(VipsBandFormat::VIPS_FORMAT_UCHAR).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
+
+    return formatted;
+}
+
+VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextOptions options) {
+    auto genOpts = VImage::option();
+    if (options.font.size() > 0) {
+        genOpts->set("font", options.font.c_str());
+    }
+
+    if (options.fontFile.size() > 0) {
+        genOpts->set("fontfile", options.fontFile.c_str());
+    }
+
+    VImage textAlapha = VImage::text(text.c_str(), genOpts);
+
+    // make a constant image the size of $text, but with every pixel red ... tag it
+    // as srgb
+    const std::vector<double> textColor = {(double)options.textColor[0], (double)options.textColor[1], (double)options.textColor[2]};
+    VImage coloredImage = textAlapha.new_from_image(textColor).bandjoin(textAlapha);
+
+    return coloredImage;
+}
+
 CreationOptions NativeImage::ParseCreateOptions(const Napi::Object& options) {
     CreationOptions opts;
 
@@ -252,21 +296,21 @@ CreationOptions NativeImage::ParseCreateOptions(const Napi::Object& options) {
     if (width.IsNumber()) {
         opts.width = width.As<Napi::Number>().Int32Value();
     } else {
-        Napi::TypeError::New(options.Env(), "missing width").ThrowAsJavaScriptException();
+        Napi::TypeError::New(options.Env(), "The value of the width should be a number").ThrowAsJavaScriptException();
     }
 
     Napi::Value height = options.Get("height");
     if (height.IsNumber()) {
         opts.height = height.As<Napi::Number>().Int32Value();
     } else {
-        Napi::TypeError::New(options.Env(), "missing height").ThrowAsJavaScriptException();
+        Napi::TypeError::New(options.Env(), "The value of the height should be a number").ThrowAsJavaScriptException();
     }
 
     Napi::Value bgColor = options.Get("bgColor");
     if (bgColor.IsString()) {
         opts.bgColor = bgColor.As<Napi::String>().Utf8Value();
     } else {
-        Napi::TypeError::New(options.Env(), "missing bgColor").ThrowAsJavaScriptException();
+        Napi::TypeError::New(options.Env(), "bgColor should be a string").ThrowAsJavaScriptException();
     }
 
     return opts;

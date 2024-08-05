@@ -1,6 +1,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 const vips = require("../../index.js");
+const { NativeImage } = require("../../index.js");
 
 console.log('js-lib-vips', vips);
 
@@ -24,7 +25,7 @@ const countdownOptions = {
     outFilePath: outputFilePath
 }
 
-console.log("Testing countdown: ", vips.countdown(countdownOptions));
+console.log("Testing countdown: ", vips.NativeImage.countdown(countdownOptions));
 
 const image = vips.NativeImage.createSRGBImage(countdownOptions);
 

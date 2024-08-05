@@ -4,13 +4,22 @@
 #include <napi.h>
 #include <vips/vips8>
 
-typedef struct {
+struct CreationOptions {
     int width;
     int height;
     std::string bgColor;
-} CreationOptions;
+};
 
-typedef struct {
+struct ColoredTextOptions {
+    std::vector<u_char> textColor {255, 255, 255};
+    std::string font {""};
+    std::string fontFile {""};
+    int maxWidth {0};
+    int maxHeight {0};
+    std::string alignment {"center"};
+};
+
+struct CountdownOptions {
     // Image width
     int width;
 
@@ -22,7 +31,7 @@ typedef struct {
 
     // output file path
     std::string outFilePath;
-} CountdownOptions;
+};
 
 class NativeImage: public Napi::ObjectWrap<NativeImage> {
   public:
@@ -37,16 +46,25 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Create an empty image with background color
     static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
 
+    // Create an text image with color
+    static Napi::Value Text(const Napi::CallbackInfo& info);
+    
+    // wrapped functions
+    static Napi::Value Countdown(const Napi::CallbackInfo& info);
+
+    // Draw text on the image
     Napi::Value DrawText(const Napi::CallbackInfo& info);
 
     // Save the image to a file
     Napi::Value Save(const Napi::CallbackInfo& info);
 
-    // wrapped functions
-    Napi::Value Countdown(const Napi::CallbackInfo& info);
+
 
     // create an empty image
     static vips::VImage _createImage(const CreationOptions options);
+    static vips::VImage createRGBImage(const CreationOptions options);
+
+    static vips::VImage coloredTextImage(const std::string &text, const ColoredTextOptions options);
 
     int renderCountdown(const CountdownOptions options);
 

@@ -22,10 +22,11 @@ export declare class NativeImage {
   constructor(filePath: string);
 
   static createSRGBImage(opts: CreationOptions): NativeImage;
+  static countdown(opts: CountdownOptions): number;
 
   drawText(text: string, topX: number, topY: number, opts?: DrawTextOptions): number;
 
   save(outFilePath: string): number;
 
-  countdown(): string;
+
 }
