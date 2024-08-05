@@ -5,9 +5,9 @@
 #include <vips/vips8>
 
 struct CreationOptions {
-    int width;
-    int height;
-    std::string bgColor;
+    int width {0};
+    int height {0};
+    std::string bgColor {"#FFFFFF"};
 };
 
 struct ColoredTextOptions {

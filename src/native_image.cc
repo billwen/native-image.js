@@ -230,7 +230,50 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
 // print(f"writing {sys.argv[1]} ...")
 // animation.write_to_file(sys.argv[1])
 
+    // Create background
+    VImage bg = createRGBImage({274, 70, "#cc0008"});
 
+    // Create text
+    ColoredTextOptions labelOpts;
+    labelOpts.textColor = {255, 255, 255};
+    labelOpts.font = "Noto IKEA Latin regular 16";
+    labelOpts.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Regular.ttf";
+
+    VImage daysLabel = coloredTextImage("days", labelOpts);
+    int daysLabelPos[2] {0, 50};
+    VImage hoursLabel = coloredTextImage("hrs", labelOpts);
+    int hoursLabelPos[2] {68, 50};
+    VImage minutesLabel = coloredTextImage("min", labelOpts);
+    int minutesLabelPos[2] {136, 50};
+    VImage secondsLabel = coloredTextImage("sec", labelOpts);
+    int secondsLabelPos[2] {204, 50};
+
+    // create template
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER};
+    std::vector<int> xLabel = {daysLabelPos[0], hoursLabelPos[0], minutesLabelPos[0], secondsLabelPos[0], 0};
+    std::vector<int> yLabel = {daysLabelPos[1], hoursLabelPos[1], minutesLabelPos[1], secondsLabelPos[1], 0};
+    std::vector<VImage> labels = {daysLabel, hoursLabel, minutesLabel, secondsLabel, bg};
+    VImage template = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+
+    // Create countdown text
+    ColoredTextOptions digitOptions;
+    digitOptions.textColor = {255, 255, 255};
+    digitOptions.font = "Noto IKEA Latin bold 32";
+    digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
+
+    VImage days = coloredTextImage("14", digitOptions);
+    int daysPos[2] {0, 20};
+    VImage hours = coloredTextImage("11", digitOptions);
+    int hoursPos[2] {68, 20};
+    VImage minutes = coloredTextImage("16", digitOptions);
+    int minutesPos[2] {136, 20};
+    VImage seconds = coloredTextImage("41", digitOptions);
+    int secondsPos[2] {204, 20};
+
+    std::vector<int> xDigit {daysPos[0], hoursPos[0], minutesPos[0], secondsPos[0], 0};
+    std::vector<int> yDigit {daysPos[1], hoursPos[1], minutesPos[1], secondsPos[1], 0};
+    VImage frame = VImage::composite({days, hours, minutes, seconds, template}, modes, VImage::option()->set("x", xDigit)->set("y", yDigit));
+    frame.write_to_file("/Users/gang.wen/Documents/GitHub/jsLibVips/output/countdown-new.gif");
 
     return Napi::Number::New(env, 0);
 }
