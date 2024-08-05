@@ -25,9 +25,7 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
     }
 }
 
-NativeImage::~NativeImage() {
-
-}
+NativeImage::~NativeImage() = default;
 
 Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
@@ -249,9 +247,9 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     int secondsLabelPos[2] {204, 50};
 
     // create template
-    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER};
-    std::vector<int> xLabel = {daysLabelPos[0], hoursLabelPos[0], minutesLabelPos[0], secondsLabelPos[0], 0};
-    std::vector<int> yLabel = {daysLabelPos[1], hoursLabelPos[1], minutesLabelPos[1], secondsLabelPos[1], 0};
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER};
+    std::vector<int> xLabel = {daysLabelPos[0], hoursLabelPos[0], minutesLabelPos[0], secondsLabelPos[0]};
+    std::vector<int> yLabel = {daysLabelPos[1], hoursLabelPos[1], minutesLabelPos[1], secondsLabelPos[1]};
     std::vector<VImage> labels = {daysLabel, hoursLabel, minutesLabel, secondsLabel, bg};
     VImage template = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
 

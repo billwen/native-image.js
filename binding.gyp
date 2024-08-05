@@ -10,8 +10,6 @@
             "cflags_cc!": [ "-fno-exceptions"],
             "sources": [
                 "src/main.cc",
-                "src/js-lib-vips.cc",
-                "src/countdown.cc",
                 "src/native_image.cc"
             ],
             "include_dirs": [
