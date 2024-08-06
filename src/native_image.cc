@@ -36,8 +36,10 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
         StaticMethod<&NativeImage::Countdown>("countdown", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::RenderCountdownAnimation>("renderCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::Text>("text", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-        StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable))
+        StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        StaticMethod<&NativeImage::PrepareCountdownAnimation>("prepareCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
     });
 
 
@@ -239,14 +241,21 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     labelOpts.textColor = {255, 255, 255};
     labelOpts.font = "Noto IKEA Latin regular 16";
     labelOpts.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Regular.ttf";
+    labelOpts.width = 64;
+    labelOpts.height = 20;
+    labelOpts.alignment = "center";
 
     VImage daysLabel = coloredTextImage("days", labelOpts);
+    printf("daysLabel width: %d, height: %d\n", daysLabel.width(), daysLabel.height());
     int daysLabelPos[2] {0, 50};
     VImage hoursLabel = coloredTextImage("hrs", labelOpts);
+    printf("hoursLabel width: %d, height: %d\n", hoursLabel.width(), hoursLabel.height());
     int hoursLabelPos[2] {68, 50};
     VImage minutesLabel = coloredTextImage("min", labelOpts);
+    printf("minutesLabel width: %d, height: %d\n", minutesLabel.width(), minutesLabel.height());
     int minutesLabelPos[2] {136, 50};
     VImage secondsLabel = coloredTextImage("sec", labelOpts);
+    printf("secondsLabel width: %d, height: %d\n", secondsLabel.width(), secondsLabel.height());
     int secondsLabelPos[2] {204, 50};
 
     // create template
@@ -263,15 +272,17 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     digitOptions.textColor = {255, 255, 255};
     digitOptions.font = "Noto IKEA Latin bold 32";
     digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
+    digitOptions.width = 64;
+    digitOptions.height = 40;
 
     // VImage days = coloredTextImage("14", digitOptions);
-     int daysPos[2] {0, 20};
+     int daysPos[2] {0, 10};
     // VImage hours = coloredTextImage("11", digitOptions);
-     int hoursPos[2] {68, 20};
+     int hoursPos[2] {68, 10};
     // VImage minutes = coloredTextImage("16", digitOptions);
-     int minutesPos[2] {136, 20};
+     int minutesPos[2] {136, 10};
     // VImage seconds = coloredTextImage("41", digitOptions);
-     int secondsPos[2] {204, 20};
+     int secondsPos[2] {204, 10};
 
     std::vector<int> xDigit {daysPos[0], hoursPos[0], minutesPos[0], secondsPos[0]};
     std::vector<int> yDigit {daysPos[1], hoursPos[1], minutesPos[1], secondsPos[1]};
@@ -377,6 +388,24 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
     }
 
     VImage textAlapha = VImage::text(text.c_str(), genOpts);
+    if (options.width > 0 || options.height > 0) {
+        int outWidth = options.width > 0 ? options.width : textAlapha.width();
+        int outHeight = options.height > 0 ? options.height : textAlapha.height();
+
+        if ( outWidth < textAlapha.width() ) {
+            printf("width value [%d] is smaller than the size of text [%d] and reset to text width\n", outWidth, textAlapha.width());
+            outWidth = textAlapha.width();
+        }
+
+        if ( outHeight < textAlapha.height() ) {
+            printf("height value [%d] is smaller than the size of text [%d] and reset to text height\n", outHeight, textAlapha.height());
+            outHeight = textAlapha.height();
+        }
+
+        VipsCompassDirection align = jsvips::to_compass_direction(options.alignment, VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE);
+        textAlapha = textAlapha.gravity(align, outWidth, outHeight);
+
+    }
 
     // make a constant image the size of $text, but with every pixel red ... tag it
     // as srgb
@@ -498,4 +527,25 @@ std::map<std::string, VImage> NativeImage::renderDigitalImages() {
     }
 
     return images;
+}
+
+//
+// Prepare resources to generate countdown animation
+//
+Napi::Value NativeImage::PrepareCountdownAnimation(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::HandleScope scope(env);
+
+    printf("Size of cached images %d. \n", (int)digitalImages.size());
+
+    return Napi::Number::New(env, 0);
+}
+
+Napi::Value NativeImage::RenderCountdownAnimation(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::HandleScope scope(env);
+
+    printf("Size of cached images %d. \n", (int)digitalImages.size());
+
+    return Napi::Number::New(env, 0);
 }

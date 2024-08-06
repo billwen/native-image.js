@@ -15,8 +15,8 @@ struct ColoredTextOptions {
     std::vector<u_char> textColor {255, 255, 255};
     std::string font {""};
     std::string fontFile {""};
-    int maxWidth {0};
-    int maxHeight {0};
+    int width {0};
+    int height {0};
     std::string alignment {"center"};
 };
 
@@ -46,6 +46,9 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
   private:
     // Create an empty image with background color
     static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
+
+    static Napi::Value PrepareCountdownAnimation(const Napi::CallbackInfo& info);
+    Napi::Value RenderCountdownAnimation(const Napi::CallbackInfo& info);
 
     // Create an text image with color
     static Napi::Value Text(const Napi::CallbackInfo& info);
