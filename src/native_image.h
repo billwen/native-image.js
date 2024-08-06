@@ -1,6 +1,7 @@
 #ifndef NATIVE_IMAGE_H
 #define NATIVE_IMAGE_H
 
+#include <map>
 #include <napi.h>
 #include <vips/vips8>
 
@@ -58,8 +59,6 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Save the image to a file
     Napi::Value Save(const Napi::CallbackInfo& info);
 
-
-
     // create an empty image
     static vips::VImage _createImage(const CreationOptions options);
     static vips::VImage createRGBImage(const CreationOptions options);
@@ -78,6 +77,9 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Internal instance of an image object
     //
     vips::VImage image_;
+
+    static std::map<std::string, vips::VImage> digitalImages;
+    static std::map<std::string, vips::VImage> renderDigitalImages();
 
 };
 

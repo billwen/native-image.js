@@ -1,4 +1,5 @@
 #include <iostream>
+#include "utils.h"
 #include "native_image.h"
 
 using namespace vips;
@@ -26,6 +27,7 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
 }
 
 NativeImage::~NativeImage() = default;
+std::map<std::string, VImage> NativeImage::digitalImages = NativeImage::renderDigitalImages();
 
 Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
@@ -214,6 +216,7 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     Napi::HandleScope scope(env);
 
+    printf("Size of cached images %d. \n", (int)digitalImages.size());
 //     # the input images
 // # assume these are all the same size
 // images = [pyvips.Image.new_from_file(filename, access="sequential")
@@ -247,11 +250,13 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     int secondsLabelPos[2] {204, 50};
 
     // create template
-    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER, VipsBlendMode::VIPS_BLEND_MODE_OVER};
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
     std::vector<int> xLabel = {daysLabelPos[0], hoursLabelPos[0], minutesLabelPos[0], secondsLabelPos[0]};
     std::vector<int> yLabel = {daysLabelPos[1], hoursLabelPos[1], minutesLabelPos[1], secondsLabelPos[1]};
-    std::vector<VImage> labels = {daysLabel, hoursLabel, minutesLabel, secondsLabel, bg};
-    VImage template = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+    std::vector<VImage> labels = {bg, daysLabel, hoursLabel, minutesLabel, secondsLabel};
+
+    VImage t = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+    printf("Template width: %d, height: %d\n", t.width(), t.height());
 
     // Create countdown text
     ColoredTextOptions digitOptions;
@@ -259,19 +264,70 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     digitOptions.font = "Noto IKEA Latin bold 32";
     digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
 
-    VImage days = coloredTextImage("14", digitOptions);
-    int daysPos[2] {0, 20};
-    VImage hours = coloredTextImage("11", digitOptions);
-    int hoursPos[2] {68, 20};
-    VImage minutes = coloredTextImage("16", digitOptions);
-    int minutesPos[2] {136, 20};
-    VImage seconds = coloredTextImage("41", digitOptions);
-    int secondsPos[2] {204, 20};
+    // VImage days = coloredTextImage("14", digitOptions);
+     int daysPos[2] {0, 20};
+    // VImage hours = coloredTextImage("11", digitOptions);
+     int hoursPos[2] {68, 20};
+    // VImage minutes = coloredTextImage("16", digitOptions);
+     int minutesPos[2] {136, 20};
+    // VImage seconds = coloredTextImage("41", digitOptions);
+     int secondsPos[2] {204, 20};
 
-    std::vector<int> xDigit {daysPos[0], hoursPos[0], minutesPos[0], secondsPos[0], 0};
-    std::vector<int> yDigit {daysPos[1], hoursPos[1], minutesPos[1], secondsPos[1], 0};
-    VImage frame = VImage::composite({days, hours, minutes, seconds, template}, modes, VImage::option()->set("x", xDigit)->set("y", yDigit));
-    frame.write_to_file("/Users/gang.wen/Documents/GitHub/jsLibVips/output/countdown-new.gif");
+    std::vector<int> xDigit {daysPos[0], hoursPos[0], minutesPos[0], secondsPos[0]};
+    std::vector<int> yDigit {daysPos[1], hoursPos[1], minutesPos[1], secondsPos[1]};
+
+    std::vector<VImage> frames;
+    int days = 14;
+    int hours = 11;
+    int minutes = 16;
+    int seconds = 41;
+
+    for (int i = 0; i < 60; i++) {
+        int frameMinutes = minutes;
+        int frameSeconds = seconds - i;
+        int frameHours = hours;
+        int frameDays = days;
+
+        if (frameSeconds < 0) {
+            frameSeconds += 60;
+            frameMinutes -= 1;
+
+            if (frameMinutes < 0) {
+                frameMinutes += 60;
+                frameHours -= 1;
+
+                if (frameHours < 0) {
+                    frameHours += 24;
+                    frameDays -= 1;
+
+                    if (frameDays < 0) {
+                        frameDays = 0;
+                    }
+                }
+            }
+        }
+
+        int digitals[4] {frameDays, frameHours, frameMinutes, frameSeconds};
+        std::vector<VImage> digitalImages = {t};
+        for (int d: digitals) {
+            std::string digitalText = jsvips::format("%02d", d);
+            VImage digitalImage = coloredTextImage(digitalText, digitOptions);
+            digitalImages.push_back(digitalImage);
+        }
+
+        VImage frame = VImage::composite(digitalImages, modes, VImage::option()->set("x", xDigit)->set("y", yDigit));
+        frames.push_back(frame);
+    }
+
+    // Join a set of pages vertically to make a multipage image
+    VImage animation = VImage::arrayjoin(frames, VImage::option()->set("across", 1));
+    VImage animationPage = animation.copy();
+    animationPage.set("page-height", t.height());
+
+    // frame delays are in milliseconds ... 300 is pretty slow!
+    std::vector<int> delayArray(frames.size(), 1000);
+    animationPage.set("delay", delayArray);
+    animationPage.write_to_file("/Users/gang.wen/Documents/GitHub/jsLibVips/output/countdown_2.gif");
 
     return Napi::Number::New(env, 0);
 }
@@ -325,7 +381,7 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
     // make a constant image the size of $text, but with every pixel red ... tag it
     // as srgb
     const std::vector<double> textColor = {(double)options.textColor[0], (double)options.textColor[1], (double)options.textColor[2]};
-    VImage coloredImage = textAlapha.new_from_image(textColor).bandjoin(textAlapha);
+    VImage coloredImage = textAlapha.new_from_image(textColor).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB)).bandjoin(textAlapha);
 
     return coloredImage;
 }
@@ -423,4 +479,23 @@ int NativeImage::renderCountdown(const CountdownOptions options) {
     VImage image = _createImage({options.width, options.height, options.bgColor});
 
     return 0;
+}
+
+std::map<std::string, VImage> NativeImage::renderDigitalImages() {
+    std::map<std::string, VImage> images;
+
+    ColoredTextOptions digitOptions;
+    digitOptions.textColor = {255, 255, 255};
+    digitOptions.font = "Noto IKEA Latin bold 32";
+    digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
+
+    // Generate digitals from 0 to 99, total 100 images
+    for (int i = 0; i < 100; i++) {
+        std::string digital = jsvips::format("%02d", i);
+//        printf("digital: %s\n", buff);
+        VImage image = coloredTextImage(digital, digitOptions);
+        images[digital] = image;
+    }
+
+    return images;
 }

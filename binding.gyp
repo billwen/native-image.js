@@ -9,8 +9,9 @@
             "cflags!": [ "-fno-exceptions" ],
             "cflags_cc!": [ "-fno-exceptions"],
             "sources": [
+                "src/utils.cc",
+                "src/native_image.cc",
                 "src/main.cc",
-                "src/native_image.cc"
             ],
             "include_dirs": [
                 "<!@(node -p \"require('node-addon-api').include\")",

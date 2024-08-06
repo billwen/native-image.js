@@ -25,7 +25,10 @@ const countdownOptions = {
     outFilePath: outputFilePath
 }
 
+const start = Date.now();
 console.log("Testing countdown: ", vips.NativeImage.countdown(countdownOptions));
+const pt = Date.now() - start;
+console.log("countdown took: ", pt);
 
 const image = vips.NativeImage.createSRGBImage(countdownOptions);
 
