@@ -5,6 +5,7 @@
 using namespace vips;
 
 NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<NativeImage>(info) {
+    mode_ = ImageMode::IMAGE;
     Napi::Env env = info.Env();
     Napi::HandleScope scope(env);
 
@@ -12,22 +13,77 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
         Napi::TypeError::New(env, "Missing arguments").ThrowAsJavaScriptException();
     }
 
+    this->mode_ = ImageMode::IMAGE;
+    // First argument is the path to the image file or configuration file
     if (info[0].IsString()) {
         std::string path = info[0].As<Napi::String>().Utf8Value();
         this->image_ = VImage::new_from_file(path.c_str(), VImage::option ()->set ("access", VIPS_ACCESS_SEQUENTIAL));
     } else if (info[0].IsObject()) {
-        std::cout << "NativeImage object" << std::endl;
+//        std::cout << "NativeImage object" << std::endl;
         Napi::Object options = info[0].As<Napi::Object>();
-        CreationOptions opts = ParseCreateOptions(options);
+        CreationOptions opts = parseCreationOptions(options);
         this->image_ = createRGBImage(opts);
- //       this->image_ = _createImage(opts);
+        if (info.Length() >= 2) {
+            // Extra arguments are available
+            if (!info[1].IsNumber()) {
+                Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
+            }
+
+            // create the template
+            if (info[1].As<Napi::Number>().Int32Value() == 1) {
+                this->mode_ = ImageMode::COUNTDOWN;
+
+                // Parse the countdown options
+                this->countdownOptions_ = parseCountdownOptions(options);
+
+                // Parpare the template
+                initCountdownAnimation();
+
+            } else {
+                Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
+            }
+        }
     } else {
-        Napi::TypeError::New(env, "Invalid arguments").ThrowAsJavaScriptException();
+        Napi::TypeError::New(env, "Invalid the first argument.").ThrowAsJavaScriptException();
     }
 }
 
 NativeImage::~NativeImage() = default;
 std::map<std::string, VImage> NativeImage::digitalImages = NativeImage::renderDigitalImages();
+
+void NativeImage::initCountdownAnimation() {
+    // 1. Create an empty image with background color - allready done!
+
+    std::vector<VImage> labels;
+    std::vector<int> modes = {VIPS_BLEND_MODE_OVER};
+    std::vector<int> xLabel;
+    std::vector<int> yLabel;
+
+    // 2. Added background images
+    labels.push_back(this->image_);
+
+    // 3. Create labels images
+    for (const auto& [key, value]: this->countdownOptions_.labels) {
+        ColoredTextOptions labelOpts;
+        labelOpts.textColor = hexadecimalColorToARGB(value.color);
+        labelOpts.font = value.font;
+        labelOpts.fontFile = value.fontFile;
+        labelOpts.width = value.position.width;
+        labelOpts.height = value.position.height;
+        labelOpts.textAlignment = value.textAlignment;
+        
+        VImage labelImage = coloredTextImage(value.text, labelOpts);
+        labels.push_back(labelImage);
+        xLabel.push_back(value.position.x);
+        yLabel.push_back(value.position.y);
+    }
+
+    // 3. draw the template
+    this->image_ = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+
+    // 4. Initialize the digital images
+
+}
 
 Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
@@ -39,9 +95,8 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod<&NativeImage::RenderCountdownAnimation>("renderCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::Text>("text", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-        StaticMethod<&NativeImage::PrepareCountdownAnimation>("prepareCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        StaticMethod<&NativeImage::CreateCountdownAnimation>("createCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
     });
-
 
     // Create a persistent reference to the class constructor. This will allow
     // a function called on a class prototype and a function called on a class
@@ -167,7 +222,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
         }
     }
 
-    auto textColor = htmlHexStringToARGB(color);
+    auto textColor = hexadecimalColorToARGB(color);
 
     // Create a new text image
 
@@ -243,7 +298,6 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
     labelOpts.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Regular.ttf";
     labelOpts.width = 64;
     labelOpts.height = 20;
-    labelOpts.alignment = "center";
 
     VImage daysLabel = coloredTextImage("days", labelOpts);
     printf("daysLabel width: %d, height: %d\n", daysLabel.width(), daysLabel.height());
@@ -345,7 +399,7 @@ Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
 
 // create an empty image
 VImage NativeImage::_createImage(const CreationOptions options) {
-    std::vector<u_char> bgColor = htmlHexStringToARGB(options.bgColor);
+    std::vector<u_char> bgColor = hexadecimalColorToARGB(options.bgColor);
 
     // Make a 1x1 pixel with the red channel and cast it to provided format.
     VImage redChannel = VImage::black(1,1) + bgColor[1];
@@ -367,7 +421,7 @@ VImage NativeImage::_createImage(const CreationOptions options) {
 }
 
 VImage NativeImage::createRGBImage(const CreationOptions options) {
-    std::vector<u_char> bgColor = htmlHexStringToARGB(options.bgColor);
+    std::vector<u_char> bgColor = hexadecimalColorToARGB(options.bgColor);
     std::vector<double> channels = {(double)bgColor[1], (double)bgColor[2], (double)bgColor[3]};
 
     // full image.
@@ -402,8 +456,7 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
             outHeight = textAlapha.height();
         }
 
-        VipsCompassDirection align = jsvips::to_compass_direction(options.alignment, VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE);
-        textAlapha = textAlapha.gravity(align, outWidth, outHeight);
+        textAlapha = textAlapha.gravity(options.textAlignment, outWidth, outHeight);
 
     }
 
@@ -415,7 +468,7 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
     return coloredImage;
 }
 
-CreationOptions NativeImage::ParseCreateOptions(const Napi::Object& options) {
+CreationOptions NativeImage::parseCreationOptions(const Napi::Object& options) {
     CreationOptions opts;
 
     Napi::Value width = options.Get("width");
@@ -435,8 +488,274 @@ CreationOptions NativeImage::ParseCreateOptions(const Napi::Object& options) {
     Napi::Value bgColor = options.Get("bgColor");
     if (bgColor.IsString()) {
         opts.bgColor = bgColor.As<Napi::String>().Utf8Value();
+        if (opts.bgColor.at(0) != '#') {
+            Napi::TypeError::New(options.Env(), "bgColor should be a valid hexadecimal string").ThrowAsJavaScriptException();
+        }
     } else {
         Napi::TypeError::New(options.Env(), "bgColor should be a string").ThrowAsJavaScriptException();
+    }
+
+    return opts;
+}
+
+/**
+ * Parse position options
+ */
+Position2D NativeImage::parsePosition2D(const Napi::Object& options) {
+    Position2D position;
+
+    // attribute "x" - required
+    if (options.Has("x")) {
+        if (options.Get("x").IsNumber()) {
+            position.x = options.Get("x").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute x must be a number").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing x attribute").ThrowAsJavaScriptException();
+    }
+
+    // attribute "y" - required
+    if (options.Has("y")) {
+        if (options.Get("y").IsNumber()) {
+            position.y = options.Get("y").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute y must be a number").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing y attribute").ThrowAsJavaScriptException();
+    }
+
+    // attribute "width" - optional
+    if (options.Has("width")) {
+        if (options.Get("width").IsNumber()) {
+            position.width = options.Get("width").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute width must be a number").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "height" - optional
+    if (options.Has("height")) {
+        if (options.Get("height").IsNumber()) {
+            position.height = options.Get("height").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute height must be a number").ThrowAsJavaScriptException();
+        }
+    }
+
+    return position;
+}
+
+/**
+ * Parse countdown component options
+ */
+CountdownComponent NativeImage::parseCountdownComponent(const Napi::Object& options, bool ignoreText) {
+    CountdownComponent component;
+
+    // attribute "text" - required / optional
+    if (options.Has("text")) {
+        if (options.Get("text").IsString()) {
+            component.text = options.Get("text").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute text must be a string.").ThrowAsJavaScriptException();
+        }
+    } else {
+        if (!ignoreText) {
+            Napi::TypeError::New(options.Env(), "Missing text attribute").ThrowAsJavaScriptException();
+        }
+
+    }
+
+    // attribute "position" - required
+    if (options.Has("position")) {
+        if (options.Get("position").IsObject()) {
+            Napi::Object positionObj = options.Get("position").As<Napi::Object>();
+            component.position = parsePosition2D(positionObj);
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute position must be an object").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing position attribute").ThrowAsJavaScriptException();
+    }
+
+    // attribute "color" - optional
+    if (options.Has("color")) {
+        if (options.Get("color").IsString()) {
+            component.color = options.Get("color").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute color must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "textAlignment" - optional
+    if (options.Has("textAlignment")) {
+        if (options.Get("textAlignment").IsString()) {
+            component.textAlignment = jsvips::to_compass_direction(options.Get("textAlignment").As<Napi::String>().Utf8Value(), VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE);
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute textAlignment must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "font" - optional
+    if (options.Has("font")) {
+        if (options.Get("font").IsString()) {
+            component.font = options.Get("font").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute font must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "fontFile" - optional
+    if (options.Has("fontFile")) {
+        if (options.Get("fontFile").IsString()) {
+            component.fontFile = options.Get("fontFile").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute fontFile must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    return component;
+}
+
+CountdownComponentPosition NativeImage::parseCountdownComponentPosition(const Napi::Object& options) {
+    CountdownComponentPosition cp;
+
+    if (options.Has("position")) {
+        if (options.Get("position").IsObject()) {
+            Napi::Object positionObj = options.Get("position").As<Napi::Object>();
+            cp.position = parsePosition2D(positionObj);
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute position must be an object").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing position attribute").ThrowAsJavaScriptException();
+    }
+
+    return cp;
+}
+
+CountdownComponentStyle NativeImage::parseCountdownComponentStyle(const Napi::Object& options) {
+    CountdownComponentStyle cs;
+
+    if (options.Has("color")) {
+        if (options.Get("color").IsString()) {
+            cs.color = options.Get("color").As<Napi::String>().Utf8Value();
+            if (cs.color.at(0) != '#') {
+                Napi::TypeError::New(options.Env(), "Attribute color should be a valid hexadecimal string").ThrowAsJavaScriptException();
+            }
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute color must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    if (options.Has("textAlignment")) {
+        if (options.Get("textAlignment").IsString()) {
+            cs.textAlignment = jsvips::to_compass_direction(options.Get("textAlignment").As<Napi::String>().Utf8Value(), VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE);
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute textAlignment must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    if (options.Has("font")) {
+        if (options.Get("font").IsString()) {
+            cs.font = options.Get("font").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute font must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    if (options.Has("fontFile")) {
+        if (options.Get("fontFile").IsString()) {
+            cs.fontFile = options.Get("fontFile").As<Napi::String>().Utf8Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute fontFile must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    return cs;
+}
+
+/**
+ * Parse countdown options
+ */
+CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options) {
+    CountdownOptions opts;
+
+    CreationOptions creationOpts = parseCreationOptions(options);
+    opts.width = creationOpts.width;
+    opts.height = creationOpts.height;
+    opts.bgColor = creationOpts.bgColor;
+
+    // Attribute "labels" - required
+    if (options.Has("labels")) {
+        Napi::Value labels = options.Get("labels");
+        if (labels.IsObject()) {
+            Napi::Object labelsObj = labels.As<Napi::Object>();
+            Napi::Array keys = labelsObj.GetPropertyNames();
+            for (uint32_t i = 0; i < keys.Length(); i++) {
+                std::string key = keys.Get(i).As<Napi::String>().Utf8Value();
+                Napi::Value label = labelsObj.Get(key);
+                if (label.IsObject()) {
+                    Napi::Object labelObj = label.As<Napi::Object>();
+                    CountdownComponent component = parseCountdownComponent(labelObj);
+                    opts.labels[key] = component;
+                } else {
+                    Napi::TypeError::New(options.Env(), "Invalid format label object").ThrowAsJavaScriptException();
+                }
+            }
+        } else {
+            Napi::TypeError::New(options.Env(), "Parameter labels should be an object").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing labels attribute").ThrowAsJavaScriptException();
+    }
+
+    // Attribute "digits" - required
+    if (options.Has("digits")) {
+        Napi::Value digits = options.Get("digits");
+        if (digits.IsObject()) {
+            Napi::Object digitsObj = digits.As<Napi::Object>();
+            
+            if (digitsObj.Has("positions")) {
+                Napi::Value positions = digitsObj.Get("positions");
+                if (positions.IsObject()) {
+                    Napi::Object positionsObj = positions.As<Napi::Object>();
+                    for (int i = 0; i < lengthOfCountdownMomentParts; i++) {
+                        std::string k = countdownMomentPartNames[i];
+                        if (positionsObj.Has(k)) {
+                            if (positionsObj.Get(k).IsObject()) {
+                                CountdownComponentPosition cp = parseCountdownComponentPosition(positionsObj.Get(k).As<Napi::Object>());
+                                opts.digits.positions[i] = cp;
+                            } else {
+                                Napi::TypeError::New(options.Env(), "Invalid format position object").ThrowAsJavaScriptException();
+                            }
+                        } else {
+                            Napi::TypeError::New(options.Env(), "Missing attribute " + k).ThrowAsJavaScriptException();
+                        }
+                    }
+                } else {
+                    Napi::TypeError::New(options.Env(), "Parameter positions should be an object").ThrowAsJavaScriptException();
+                }
+            } else {
+                Napi::TypeError::New(options.Env(), "Missing positions attribute").ThrowAsJavaScriptException();
+            }
+
+            // Attribute "styles" - optional
+            if (digitsObj.Has("styles")) {
+                Napi::Value styles = digitsObj.Get("styles");
+                if (styles.IsObject()) {
+                    Napi::Object stylesObj = styles.As<Napi::Object>();
+                    opts.digits.style = parseCountdownComponentStyle(stylesObj);
+                } else {
+                    Napi::TypeError::New(options.Env(), "Parameter styles should be an object").ThrowAsJavaScriptException();
+                }
+            } 
+        } else {
+            Napi::TypeError::New(options.Env(), "Parameter digits should be an object").ThrowAsJavaScriptException();
+        }
+    } else {
+        Napi::TypeError::New(options.Env(), "Missing digits attribute").ThrowAsJavaScriptException();
     }
 
     return opts;
@@ -455,7 +774,7 @@ CreationOptions NativeImage::ParseCreateOptions(const Napi::Object& options) {
  * @return array a decimal ARGB array, return black if the hex string is invalid
  * 
  */
-std::vector<u_char> NativeImage::htmlHexStringToARGB(const std::string& hex) {
+std::vector<u_char> NativeImage::hexadecimalColorToARGB(const std::string& hex) {
     const std::vector<u_char> defaultColor = {0, 0, 0, 0};
     if (hex.length() == 0) {
         return defaultColor;
@@ -532,20 +851,26 @@ std::map<std::string, VImage> NativeImage::renderDigitalImages() {
 //
 // Prepare resources to generate countdown animation
 //
-Napi::Value NativeImage::PrepareCountdownAnimation(const Napi::CallbackInfo& info) {
+Napi::Value NativeImage::CreateCountdownAnimation(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    Napi::HandleScope scope(env);
+    Napi::EscapableHandleScope scope(env);
 
-    printf("Size of cached images %d. \n", (int)digitalImages.size());
+    if (info.Length() == 0) {
+        Napi::TypeError::New(env, "Missing CountdownOptions").ThrowAsJavaScriptException();
+    }
 
-    return Napi::Number::New(env, 0);
+    // Retrieve the instance data we stored during `Init()`. We only stored the
+    // constructor there, so we retrieve it here to create a new instance of the
+    // JS class the constructor represents.
+    Napi::Value mode = Napi::Number::New(env, static_cast<int>(ImageMode::COUNTDOWN));
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Object obj = constructor->New({info[0], mode});
+    return scope.Escape(napi_value(obj)).ToObject();
 }
 
 Napi::Value NativeImage::RenderCountdownAnimation(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    Napi::HandleScope scope(env);
-
-    printf("Size of cached images %d. \n", (int)digitalImages.size());
+    Napi::EscapableHandleScope scope(env);
 
     return Napi::Number::New(env, 0);
 }
