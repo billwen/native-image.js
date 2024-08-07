@@ -434,6 +434,7 @@ VImage NativeImage::createRGBImage(const CreationOptions options) {
 VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextOptions options) {
     auto genOpts = VImage::option();
     if (options.font.size() > 0) {
+//        std::cout << "font " << options.font << std::endl;
         genOpts->set("font", options.font.c_str());
     }
 
@@ -441,30 +442,31 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
         genOpts->set("fontfile", options.fontFile.c_str());
     }
 
-    VImage textAlapha = VImage::text(text.c_str(), genOpts);
+    VImage textAlpha = VImage::text(text.c_str(), genOpts);
+    std::cout << "render " << text << " xoffset " << textAlpha.xoffset() << " yoffset " << textAlpha.yoffset() << " width " << textAlpha.width() << " height " << textAlpha.height() << std::endl;
     if (options.width > 0 || options.height > 0) {
-        int outWidth = options.width > 0 ? options.width : textAlapha.width();
-        int outHeight = options.height > 0 ? options.height : textAlapha.height();
+        int outWidth = options.width > 0 ? options.width : textAlpha.width();
+        int outHeight = options.height > 0 ? options.height : textAlpha.height();
 
-        if ( outWidth < textAlapha.width() ) {
-            printf("width value [%d] is smaller than the size of text [%d] and reset to text width\n", outWidth, textAlapha.width());
-            outWidth = textAlapha.width();
+        if (outWidth < textAlpha.width() ) {
+            printf("width value [%d] is smaller than the size of text [%d] and reset to text width\n", outWidth, textAlpha.width());
+            outWidth = textAlpha.width();
         }
 
-        if ( outHeight < textAlapha.height() ) {
-            printf("height value [%d] is smaller than the size of text [%d] and reset to text height\n", outHeight, textAlapha.height());
-            outHeight = textAlapha.height();
+        if (outHeight < textAlpha.height() ) {
+            printf("height value [%d] is smaller than the size of text [%d] and reset to text height\n", outHeight, textAlpha.height());
+            outHeight = textAlpha.height();
         }
 
-        textAlapha = textAlapha.gravity(options.textAlignment, outWidth, outHeight);
+        textAlpha = textAlpha.gravity(options.textAlignment, outWidth, outHeight);
 
     }
 
     // make a constant image the size of $text, but with every pixel red ... tag it
     // as srgb
     const std::vector<double> textColor = {(double)options.textColor[0], (double)options.textColor[1], (double)options.textColor[2]};
-    VImage coloredImage = textAlapha.new_from_image(textColor).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB)).bandjoin(textAlapha);
-
+    VImage coloredImage = textAlpha.new_from_image(textColor).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB)).bandjoin(textAlpha);
+//    std::cout << "return " << text << " xoffset " << coloredImage.xoffset() << " yoffset " << coloredImage.yoffset() << std::endl;
     return coloredImage;
 }
 
