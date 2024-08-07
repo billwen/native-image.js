@@ -16,7 +16,9 @@ const labelColor: HexadecimalColor = "#ffffff";
 const digitColor: HexadecimalColor = "#ffffff";
 const labelFont = "Noto IKEA Latin Regular 16";
 const digitFont = "Noto IKEA Latin Bold 32";
-const fontFile = path.resolve(__dirname, "../../output/fonts/DancingScript-VariableFont_wght.ttf");
+const fontRegularFile = path.resolve(__dirname, "../../output/fonts/NotoIKEALatin-Regular.ttf");
+const fontBoldFile = path.resolve(__dirname, "../../output/fonts/NotoIKEALatin-Bold.ttf");
+console.log(`Bold font: ${fontBoldFile} - Regular font: ${fontRegularFile}`)
 
 const countdownOptions: CountdownOptions = {
     name: "red-v1-en",
@@ -31,7 +33,7 @@ const countdownOptions: CountdownOptions = {
             color: labelColor,
             textAlignment: "center",
             font: labelFont,
-            fontFile
+            fontFile: fontRegularFile
         },
         hours: {
             text: "hrs",
@@ -39,7 +41,7 @@ const countdownOptions: CountdownOptions = {
             color: labelColor,
             textAlignment: "center",
             font: labelFont,
-            fontFile
+            fontFile: fontRegularFile
         },
         minutes: {
             text: "min",
@@ -47,7 +49,7 @@ const countdownOptions: CountdownOptions = {
             color: labelColor,
             textAlignment: "center",
             font: labelFont,
-            fontFile
+            fontFile: fontRegularFile
         },
         seconds: {
             text: "sec",
@@ -55,7 +57,7 @@ const countdownOptions: CountdownOptions = {
             color: labelColor,
             textAlignment: "center",
             font: labelFont,
-            fontFile
+            fontFile: fontRegularFile
         }
     },
     digits: {
@@ -77,13 +79,17 @@ const countdownOptions: CountdownOptions = {
         color: digitColor,
         textAlignment: "center",
         font: digitFont,
-        fontFile
+        fontFile: fontBoldFile
       }
 
     }
 }
 
 // const image = new NativeImage();
+const start = Date.now();
 const emptyImage = NativeImage.createCountdownAnimation(countdownOptions);
+const pt = Date.now() - start;
+
 emptyImage.save(outputFilePath);
+console.log(`Processing time ${pt}`);
 
