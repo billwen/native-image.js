@@ -39,6 +39,8 @@ export type CountdownComponentPosition = {
 
 export type CountdownComponentStyle = {
   color: HexadecimalColor;
+  width?: number;
+  height?: number;
   textAlignment?: ComponentPosition;
   font?: string;
   fontFile?: string;
@@ -46,6 +48,8 @@ export type CountdownComponentStyle = {
 
 export type CountdownComponent = CountdownComponentPosition & CountdownComponentStyle & {
     text: string;
+    paddingTop?: number;
+    paddingBottom?: number;
 };
 
 export type CountdownOptions = CreationOptions & {
@@ -53,8 +57,9 @@ export type CountdownOptions = CreationOptions & {
     langs: string[];
     labels: Record<string, CountdownComponent>;
     digits: {
-      positions: CountdownMoment<CountdownComponentPosition>
-      style: CountdownComponentStyle
+      positions: CountdownMoment<CountdownComponentPosition>;
+      style: CountdownComponentStyle;
+      textTemplate?: string;
     };
 };
 
@@ -67,7 +72,7 @@ export declare class NativeImage {
   // Countdown banner functions
   //
   static createCountdownAnimation(opts: CountdownOptions): NativeImage;
-  renderCountdownAnimation(start: CountdownMoment<number>, frames: number): Buffer | string;
+  renderCountdownAnimation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
 
   static countdown(opts: CountdownOptions): number;
 

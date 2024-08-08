@@ -30,16 +30,18 @@ const std::string countdownMomentPartNames[lengthOfCountdownMomentParts] = {
 struct CreationOptions {
     int width {0};
     int height {0};
-    std::string bgColor {"#FFFFFF"};
+    std::string bgColor {"#ffffff"};
 };
 
 struct ColoredTextOptions {
     std::vector<u_char> textColor {255, 255, 255};
-    std::string font {""};
-    std::string fontFile {""};
+    std::string font;
+    std::string fontFile;
     int width {0};
     int height {0};
     VipsCompassDirection textAlignment {VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE};
+    int paddingTop {0};
+    int paddingBottom {0};
 };
 
 template <typename T>
@@ -63,8 +65,10 @@ struct Position2D : Dimension2D<int> {
 
 struct CountdownComponentStyle {
     std::string color {"#ffffff"};
-    std::string font {""};
-    std::string fontFile {""};
+    std::string font;
+    std::string fontFile;
+    int width {0};
+    int height {0};
     VipsCompassDirection textAlignment {VipsCompassDirection::VIPS_COMPASS_DIRECTION_CENTRE};
 };
 
@@ -75,12 +79,15 @@ struct CountdownComponentPosition {
 
 struct CountdownComponent : CountdownComponentPosition, CountdownComponentStyle {
     // Text to display - required
-    std::string text {""};
+    std::string text;
+    int paddingTop {0};
+    int paddingBottom {0};
 };
 
 struct CountdownDigits {
     CountdownComponentPosition positions[lengthOfCountdownMomentParts];
     CountdownComponentStyle style;
+    std::string textTemplate;
 };
 
 struct CountdownOptions : CreationOptions {
@@ -94,8 +101,7 @@ struct CountdownOptions : CreationOptions {
 class NativeImage: public Napi::ObjectWrap<NativeImage> {
   public:
     // Constructor
-    NativeImage(const Napi::CallbackInfo& info);
-    ~NativeImage();
+    explicit NativeImage(const Napi::CallbackInfo& info);
 
     void initCountdownAnimation();
 
@@ -112,9 +118,6 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Create an text image with color
     static Napi::Value Text(const Napi::CallbackInfo& info);
     
-    // wrapped functions
-    static Napi::Value Countdown(const Napi::CallbackInfo& info);
-
     // Draw text on the image
     Napi::Value DrawText(const Napi::CallbackInfo& info);
 
@@ -122,12 +125,11 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     Napi::Value Save(const Napi::CallbackInfo& info);
 
     // create an empty image
-    static vips::VImage _createImage(const CreationOptions options);
-    static vips::VImage createRGBImage(const CreationOptions options);
+    static vips::VImage createRGBImage(const CreationOptions& options);
 
-    static vips::VImage coloredTextImage(const std::string &text, const ColoredTextOptions options);
+    static vips::VImage coloredTextImage(const std::string &text, const ColoredTextOptions& options);
 
-    int renderCountdown(const CountdownOptions options);
+    vips::VImage renderCountdownAnimation(const std::vector<int>& duration, int frames);
 
     //
     // Help functions
@@ -138,8 +140,10 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     static Position2D                 parsePosition2D(const Napi::Object& options);
     static CountdownComponentPosition parseCountdownComponentPosition(const Napi::Object& options);
     static CountdownComponentStyle    parseCountdownComponentStyle(const Napi::Object& options);
+    static std::vector<int>           parseCountdownMomentWithNumber(const Napi::Object& options);
 
-    static std::vector<u_char> hexadecimalColorToARGB(const std::string& hex);
+    static std::vector<u_char>        hexadecimalColorToARGB(const std::string& hex);
+    static std::vector<int>           minusOneSecondToDuration(const std::vector<int>& duration);
 
     //
     // Internal instance of an image object
@@ -150,10 +154,6 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Countdown animation
     CountdownOptions countdownOptions_;
     std::vector<vips::VImage> countdownDigits_;
-    
-    static std::map<std::string, vips::VImage> digitalImages;
-    static std::map<std::string, vips::VImage> renderDigitalImages();
-
 };
 
 #endif

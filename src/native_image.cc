@@ -48,9 +48,6 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
     }
 }
 
-NativeImage::~NativeImage() = default;
-std::map<std::string, VImage> NativeImage::digitalImages = NativeImage::renderDigitalImages();
-
 void NativeImage::initCountdownAnimation() {
     // 1. Create an empty image with background color - allready done!
 
@@ -71,6 +68,8 @@ void NativeImage::initCountdownAnimation() {
         labelOpts.width = value.position.width;
         labelOpts.height = value.position.height;
         labelOpts.textAlignment = value.textAlignment;
+        labelOpts.paddingTop = value.paddingTop;
+        labelOpts.paddingBottom = value.paddingBottom;
         
         VImage labelImage = coloredTextImage(value.text, labelOpts);
         labels.push_back(labelImage);
@@ -81,7 +80,23 @@ void NativeImage::initCountdownAnimation() {
     // 3. draw the template
     this->image_ = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
 
-    // 4. Initialize the digital images
+    // 4. Initialize the digits images
+    ColoredTextOptions digitOptions;
+    digitOptions.textColor = hexadecimalColorToARGB(this->countdownOptions_.digits.style.color);
+    digitOptions.width = this->countdownOptions_.digits.style.width;
+    digitOptions.height = this->countdownOptions_.digits.style.height;
+    digitOptions.font = this->countdownOptions_.digits.style.font;
+    digitOptions.fontFile = this->countdownOptions_.digits.style.fontFile;
+
+    for ( int i = 0; i < 100; i++) {
+        std::string digitalText = jsvips::format("%02d", i);
+        if (this->countdownOptions_.digits.textTemplate.size() > 0) {
+            digitalText = jsvips::format(this->countdownOptions_.digits.textTemplate, digitalText.c_str());
+        }
+
+        VImage digit = coloredTextImage(digitalText, digitOptions);
+        this->countdownDigits_.push_back(digit);
+    }
 
 }
 
@@ -89,7 +104,6 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "NativeImage", {
-        StaticMethod<&NativeImage::Countdown>("countdown", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::RenderCountdownAnimation>("renderCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
@@ -266,161 +280,7 @@ Napi::Value NativeImage::Save(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, 0);
 }
 
-/**
- * Generate a countdown gif image
- */
-Napi::Value NativeImage::Countdown(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    Napi::HandleScope scope(env);
-
-    printf("Size of cached images %d. \n", (int)digitalImages.size());
-//     # the input images
-// # assume these are all the same size
-// images = [pyvips.Image.new_from_file(filename, access="sequential")
-//           for filename in sys.argv[2:]]
-
-// animation = images[0].pagejoin(images[1:])
-
-// # frame delays are in milliseconds ... 300 is pretty slow!
-// delay_array = [300] * len(images)
-// animation.set_type(pyvips.GValue.array_int_type, "delay", delay_array)
-
-// print(f"writing {sys.argv[1]} ...")
-// animation.write_to_file(sys.argv[1])
-
-    // Create background
-    VImage bg = createRGBImage({274, 70, "#cc0008"});
-
-    // Create text
-    ColoredTextOptions labelOpts;
-    labelOpts.textColor = {255, 255, 255};
-    labelOpts.font = "Noto IKEA Latin regular 16";
-    labelOpts.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Regular.ttf";
-    labelOpts.width = 64;
-    labelOpts.height = 20;
-
-    VImage daysLabel = coloredTextImage("days", labelOpts);
-    printf("daysLabel width: %d, height: %d\n", daysLabel.width(), daysLabel.height());
-    int daysLabelPos[2] {0, 50};
-    VImage hoursLabel = coloredTextImage("hrs", labelOpts);
-    printf("hoursLabel width: %d, height: %d\n", hoursLabel.width(), hoursLabel.height());
-    int hoursLabelPos[2] {68, 50};
-    VImage minutesLabel = coloredTextImage("min", labelOpts);
-    printf("minutesLabel width: %d, height: %d\n", minutesLabel.width(), minutesLabel.height());
-    int minutesLabelPos[2] {136, 50};
-    VImage secondsLabel = coloredTextImage("sec", labelOpts);
-    printf("secondsLabel width: %d, height: %d\n", secondsLabel.width(), secondsLabel.height());
-    int secondsLabelPos[2] {204, 50};
-
-    // create template
-    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
-    std::vector<int> xLabel = {daysLabelPos[0], hoursLabelPos[0], minutesLabelPos[0], secondsLabelPos[0]};
-    std::vector<int> yLabel = {daysLabelPos[1], hoursLabelPos[1], minutesLabelPos[1], secondsLabelPos[1]};
-    std::vector<VImage> labels = {bg, daysLabel, hoursLabel, minutesLabel, secondsLabel};
-
-    VImage t = VImage::composite(labels, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
-    printf("Template width: %d, height: %d\n", t.width(), t.height());
-
-    // Create countdown text
-    ColoredTextOptions digitOptions;
-    digitOptions.textColor = {255, 255, 255};
-    digitOptions.font = "Noto IKEA Latin bold 32";
-    digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
-    digitOptions.width = 64;
-    digitOptions.height = 40;
-
-    // VImage days = coloredTextImage("14", digitOptions);
-     int daysPos[2] {0, 10};
-    // VImage hours = coloredTextImage("11", digitOptions);
-     int hoursPos[2] {68, 10};
-    // VImage minutes = coloredTextImage("16", digitOptions);
-     int minutesPos[2] {136, 10};
-    // VImage seconds = coloredTextImage("41", digitOptions);
-     int secondsPos[2] {204, 10};
-
-    std::vector<int> xDigit {daysPos[0], hoursPos[0], minutesPos[0], secondsPos[0]};
-    std::vector<int> yDigit {daysPos[1], hoursPos[1], minutesPos[1], secondsPos[1]};
-
-    std::vector<VImage> frames;
-    int days = 14;
-    int hours = 11;
-    int minutes = 16;
-    int seconds = 41;
-
-    for (int i = 0; i < 60; i++) {
-        int frameMinutes = minutes;
-        int frameSeconds = seconds - i;
-        int frameHours = hours;
-        int frameDays = days;
-
-        if (frameSeconds < 0) {
-            frameSeconds += 60;
-            frameMinutes -= 1;
-
-            if (frameMinutes < 0) {
-                frameMinutes += 60;
-                frameHours -= 1;
-
-                if (frameHours < 0) {
-                    frameHours += 24;
-                    frameDays -= 1;
-
-                    if (frameDays < 0) {
-                        frameDays = 0;
-                    }
-                }
-            }
-        }
-
-        int digitals[4] {frameDays, frameHours, frameMinutes, frameSeconds};
-        std::vector<VImage> digitalImages = {t};
-        for (int d: digitals) {
-            std::string digitalText = jsvips::format("%02d", d);
-            VImage digitalImage = coloredTextImage(digitalText, digitOptions);
-            digitalImages.push_back(digitalImage);
-        }
-
-        VImage frame = VImage::composite(digitalImages, modes, VImage::option()->set("x", xDigit)->set("y", yDigit));
-        frames.push_back(frame);
-    }
-
-    // Join a set of pages vertically to make a multipage image
-    VImage animation = VImage::arrayjoin(frames, VImage::option()->set("across", 1));
-    VImage animationPage = animation.copy();
-    animationPage.set("page-height", t.height());
-
-    // frame delays are in milliseconds ... 300 is pretty slow!
-    std::vector<int> delayArray(frames.size(), 1000);
-    animationPage.set("delay", delayArray);
-    animationPage.write_to_file("/Users/gang.wen/Documents/GitHub/jsLibVips/output/countdown_2.gif");
-
-    return Napi::Number::New(env, 0);
-}
-
-// create an empty image
-VImage NativeImage::_createImage(const CreationOptions options) {
-    std::vector<u_char> bgColor = hexadecimalColorToARGB(options.bgColor);
-
-    // Make a 1x1 pixel with the red channel and cast it to provided format.
-    VImage redChannel = VImage::black(1,1) + bgColor[1];
-    VImage pixel = redChannel.cast(VipsBandFormat::VIPS_FORMAT_UCHAR);
-
-    // Extend this 1x1 pixel to match the origin image dimensions
-    VImage image = pixel.embed(0, 0, options.width, options.height, VImage::option()->set("extend", VIPS_EXTEND_COPY));
-
-    // Ensure that the interpretation of the image is set.
-    VImage imageInterpreted = image.copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
-
-    // Bandwise join the rest of the channels including the alpha channel.
-    std::cout << "bgColor[1]: " << (double)bgColor[1] << " bgColor[2]: " << (double)bgColor[2] << " bgColor[3]: " << (double)bgColor[3] << std::endl;
-
-    const std::vector<double> chs = {(double)bgColor[2], (double)bgColor[3]};
-    VImage imageJoined = imageInterpreted.bandjoin(chs);
-
-    return imageJoined;
-}
-
-VImage NativeImage::createRGBImage(const CreationOptions options) {
+VImage NativeImage::createRGBImage(const CreationOptions& options) {
     std::vector<u_char> bgColor = hexadecimalColorToARGB(options.bgColor);
     std::vector<double> channels = {(double)bgColor[1], (double)bgColor[2], (double)bgColor[3]};
 
@@ -431,7 +291,7 @@ VImage NativeImage::createRGBImage(const CreationOptions options) {
     return formatted;
 }
 
-VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextOptions options) {
+VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextOptions& options) {
     auto genOpts = VImage::option();
     if (options.font.size() > 0) {
 //        std::cout << "font " << options.font << std::endl;
@@ -443,7 +303,17 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
     }
 
     VImage textAlpha = VImage::text(text.c_str(), genOpts);
-    std::cout << "render " << text << " xoffset " << textAlpha.xoffset() << " yoffset " << textAlpha.yoffset() << " width " << textAlpha.width() << " height " << textAlpha.height() << std::endl;
+
+    // Do subtle adjustment to the image for alignment
+    if (options.paddingBottom > 0 || options.paddingTop > 0) {
+        int newHeight = textAlpha.height() + options.paddingTop + options.paddingBottom;
+        int newWidth = textAlpha.width();
+
+        // use default VIPS_EXTEND_BLACK option
+        textAlpha = textAlpha.embed(0, options.paddingTop, newWidth, newHeight);
+    }
+
+//    std::cout << "render " << text << " xoffset " << textAlpha.xoffset() << " yoffset " << textAlpha.yoffset() << " width " << textAlpha.width() << " height " << textAlpha.height() << std::endl;
     if (options.width > 0 || options.height > 0) {
         int outWidth = options.width > 0 ? options.width : textAlpha.width();
         int outHeight = options.height > 0 ? options.height : textAlpha.height();
@@ -569,6 +439,24 @@ CountdownComponent NativeImage::parseCountdownComponent(const Napi::Object& opti
 
     }
 
+    // attribute "paddingTop" - optional
+    if (options.Has("paddingTop")) {
+        if (options.Get("paddingTop").IsNumber()) {
+            component.paddingTop = options.Get("paddingTop").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute paddingTop must be a number").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "paddingBottom" - optional
+    if (options.Has("paddingBottom")) {
+        if (options.Get("paddingBottom").IsNumber()) {
+            component.paddingBottom = options.Get("paddingBottom").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute paddingBottom must be a number").ThrowAsJavaScriptException();
+        }
+    }
+
     // attribute "position" - required
     if (options.Has("position")) {
         if (options.Get("position").IsObject()) {
@@ -648,6 +536,24 @@ CountdownComponentStyle NativeImage::parseCountdownComponentStyle(const Napi::Ob
             }
         } else {
             Napi::TypeError::New(options.Env(), "Attribute color must be a string").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "width" - optional
+    if (options.Has("width")) {
+        if (options.Get("width").IsNumber()) {
+            cs.width = options.Get("width").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute width must be a number").ThrowAsJavaScriptException();
+        }
+    }
+
+    // attribute "height" - optional
+    if (options.Has("height")) {
+        if (options.Get("height").IsNumber()) {
+            cs.height = options.Get("height").As<Napi::Number>().Int32Value();
+        } else {
+            Napi::TypeError::New(options.Env(), "Attribute height must be a number").ThrowAsJavaScriptException();
         }
     }
 
@@ -744,15 +650,26 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
             }
 
             // Attribute "styles" - optional
-            if (digitsObj.Has("styles")) {
-                Napi::Value styles = digitsObj.Get("styles");
+            if (digitsObj.Has("style")) {
+                Napi::Value styles = digitsObj.Get("style");
                 if (styles.IsObject()) {
                     Napi::Object stylesObj = styles.As<Napi::Object>();
                     opts.digits.style = parseCountdownComponentStyle(stylesObj);
+//                    std::cout << "style color: " << opts.digits.style.color << " width: " << opts.width << " height: " << opts.height << std::endl;
                 } else {
                     Napi::TypeError::New(options.Env(), "Parameter styles should be an object").ThrowAsJavaScriptException();
                 }
-            } 
+            }
+
+            // Attribute "textTemplate" - optional
+            if (digitsObj.Has("textTemplate")) {
+                Napi::Value textTemplate = digitsObj.Get("textTemplate");
+                if (textTemplate.IsString()) {
+                    opts.digits.textTemplate = textTemplate.As<Napi::String>().Utf8Value();
+                } else {
+                    Napi::TypeError::New(options.Env(), "Parameter textTemplate should be a string").ThrowAsJavaScriptException();
+                }
+            }
         } else {
             Napi::TypeError::New(options.Env(), "Parameter digits should be an object").ThrowAsJavaScriptException();
         }
@@ -761,6 +678,25 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
     }
 
     return opts;
+}
+
+std::vector<int> NativeImage::parseCountdownMomentWithNumber(const Napi::Object &options) {
+    std::vector<int> moment;
+
+    for (int i = 0; i < lengthOfCountdownMomentParts; i++) {
+        std::string k = countdownMomentPartNames[i];
+        if (options.Has(k)) {
+            if (options.Get(k).IsNumber()) {
+                moment.push_back(options.Get(k).As<Napi::Number>().Int32Value());
+            } else {
+                Napi::TypeError::New(options.Env(), "Attribute " + k + " must be a number").ThrowAsJavaScriptException();
+            }
+        } else {
+            Napi::TypeError::New(options.Env(), "Missing attribute " + k).ThrowAsJavaScriptException();
+        }
+    }
+
+    return moment;
 }
 
 /**
@@ -825,29 +761,55 @@ std::vector<u_char> NativeImage::hexadecimalColorToARGB(const std::string& hex) 
     return {alpha, red, green, blue};
 }
 
-int NativeImage::renderCountdown(const CountdownOptions options) {
-    VImage image = _createImage({options.width, options.height, options.bgColor});
-
-    return 0;
-}
-
-std::map<std::string, VImage> NativeImage::renderDigitalImages() {
-    std::map<std::string, VImage> images;
-
-    ColoredTextOptions digitOptions;
-    digitOptions.textColor = {255, 255, 255};
-    digitOptions.font = "Noto IKEA Latin bold 32";
-    digitOptions.fontFile = "/Users/gang.wen/Documents/GitHub/jsLibVips/output/fonts/NotoIKEALatin-Bold.ttf";
-
-    // Generate digitals from 0 to 99, total 100 images
-    for (int i = 0; i < 100; i++) {
-        std::string digital = jsvips::format("%02d", i);
-//        printf("digital: %s\n", buff);
-        VImage image = coloredTextImage(digital, digitOptions);
-        images[digital] = image;
+VImage NativeImage::renderCountdownAnimation(const std::vector<int> &duration, int frames) {
+    if ( this->mode_ != ImageMode::COUNTDOWN ) {
+        throw std::invalid_argument("The object is not initialized with countdown mode");
     }
 
-    return images;
+    int numFrames = frames > 0 ? frames : 1;
+
+    std::vector<VImage> pages;
+    std::vector<int> newDuration = duration;
+
+    // Build the position array
+    std::vector<int> xLabel;
+    std::vector<int> yLabel;
+    for (auto cp : this->countdownOptions_.digits.positions) {
+        xLabel.push_back(cp.position.x);
+        yLabel.push_back(cp.position.y);
+    }
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
+
+    for (int i = 0; i < numFrames; i++) {
+
+        std::vector<VImage> subImages;
+        // Add background image
+        subImages.push_back(this->image_);
+
+        for (int j = 0; j < lengthOfCountdownMomentParts; j++) {
+            int digitValue = newDuration.at(j);
+            std::string k = countdownMomentPartNames[j];
+            subImages.push_back(this->countdownDigits_.at(digitValue));
+        }
+
+        // Build a frame
+        VImage page = VImage::composite(subImages, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+        pages.push_back(page);
+
+        // Next frame
+        newDuration = minusOneSecondToDuration(newDuration);
+    }
+
+    // Join a set of pages vertically to make a multipage image
+    VImage animation = VImage::arrayjoin(pages, VImage::option()->set("across", 1));
+    VImage gifData = animation.copy();
+    gifData.set("page-height", this->image_.height());
+
+    // frame delays are in milliseconds ... 300 is pretty slow!
+    std::vector<int> delayArray(pages.size(), 1000);
+    gifData.set("delay", delayArray);
+
+    return gifData;
 }
 
 //
@@ -870,9 +832,87 @@ Napi::Value NativeImage::CreateCountdownAnimation(const Napi::CallbackInfo& info
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
+/**
+ *   renderCountdownAnimation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
+ * @param info
+ * @return
+ */
 Napi::Value NativeImage::RenderCountdownAnimation(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     Napi::EscapableHandleScope scope(env);
 
-    return Napi::Number::New(env, 0);
+    if (info.Length() < 2) {
+        Napi::TypeError::New(env, "At least 2 parameter are required!").ThrowAsJavaScriptException();
+    }
+
+    if (!info[0].IsObject()) {
+        Napi::TypeError::New(env, "Invalid start time object").ThrowAsJavaScriptException();
+    }
+    Napi::Object startObj = info[0].As<Napi::Object>();
+    std::vector<int> start = parseCountdownMomentWithNumber(startObj);
+
+    if (!info[1].IsNumber()) {
+        Napi::TypeError::New(env, "Invalid frames number").ThrowAsJavaScriptException();
+    }
+    int frames = info[1].As<Napi::Number>().Int32Value();
+
+    std::string outputFilePath;
+    if (info.Length() >= 3) {
+        // Directly save to file
+        if (!info[2].IsString()) {
+            Napi::TypeError::New(env, "Invalid file path").ThrowAsJavaScriptException();
+        }
+        outputFilePath = info[2].As<Napi::String>().Utf8Value();
+    }
+
+    // Generate animation
+    VImage gifImage = renderCountdownAnimation(start, frames);
+    std::cout << "Render countdown animation with " << frames << " frames " << gifImage.height() << " height, " << gifImage.width()<< std::endl;
+
+    // Return buffer or save to file
+    if (outputFilePath.empty()) {
+        // write to a formatted memory buffer
+        size_t size;
+        void *buf;
+        gifImage.write_to_buffer(".gif", &buf, &size);
+        return Napi::Buffer<char>::Copy(env, static_cast<char*>(buf), size);
+    } else {
+        gifImage.write_to_file(outputFilePath.c_str());
+        return Napi::String::New(env, outputFilePath);
+    }
+}
+
+std::vector<int> NativeImage::minusOneSecondToDuration(const std::vector<int>& duration) {
+    int size = duration.size();
+    if (size != lengthOfCountdownMomentParts) {
+        throw std::invalid_argument("Invalid duration size");
+    }
+
+    std::vector<int> newDuration = duration;
+    newDuration.at(static_cast<int>(CountdownMomentPart::SECONDS)) -= 1;
+
+    if (newDuration.at(static_cast<int>(CountdownMomentPart::SECONDS)) < 0) {
+        newDuration.at(static_cast<int>(CountdownMomentPart::SECONDS)) += 60;
+        newDuration.at(static_cast<int>(CountdownMomentPart::MINUTES)) -= 1;
+
+        if (newDuration.at(static_cast<int>(CountdownMomentPart::MINUTES)) < 0) {
+            newDuration.at(static_cast<int>(CountdownMomentPart::MINUTES)) += 60;
+            newDuration.at(static_cast<int>(CountdownMomentPart::HOURS)) -= 1;
+
+            if (newDuration.at(static_cast<int>(CountdownMomentPart::HOURS)) < 0) {
+                newDuration.at(static_cast<int>(CountdownMomentPart::HOURS)) += 24;
+                newDuration.at(static_cast<int>(CountdownMomentPart::DAYS)) -= 1;
+
+                if (newDuration.at(static_cast<int>(CountdownMomentPart::DAYS)) < 0) {
+                    // Reset all to 0
+                    newDuration.at(static_cast<int>(CountdownMomentPart::DAYS)) = 0;
+                    newDuration.at(static_cast<int>(CountdownMomentPart::HOURS)) = 0;
+                    newDuration.at(static_cast<int>(CountdownMomentPart::MINUTES)) = 0;
+                    newDuration.at(static_cast<int>(CountdownMomentPart::SECONDS)) = 0;
+                }
+            }
+        }
+    }
+
+    return newDuration;
 }
