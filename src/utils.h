@@ -1,3 +1,4 @@
+#include <memory>
 #include <vips/vips8>
 
 namespace jsvips {
