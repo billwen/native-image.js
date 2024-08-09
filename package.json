@@ -1,7 +1,7 @@
 {
-  "name": "@billwen/js-lib-vips",
+  "name": "@billwen/native-image",
   "version": "0.0.2",
-  "description": "A nodejs module by libVips",
+  "description": "En låda som tar hand om bilder.",
   "main": "index.js",
   "gypfile": true,
   "scripts": {
@@ -9,20 +9,23 @@
     "build": "node-gyp configure build",
     "clean": "node-gyp clean",
     "predev": "npm run build",
-    "dev": "node test/js/js-lib-vips-test.js",
     "pretest": "npm run build",
     "test": "ts-node test/ts/countdown.ts"
   },
   "keywords": [
     "native",
     "node-addon-api",
-    "libvips"
+    "image"
   ],
   "author": "Gang Wen(gang.wen@gmail.com)",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/billwen/native-image.js.git"
+  },
+  "license": "GPL-3.0",
   "devDependencies": {
     "node-gyp": "^10.2.0",
     "ts-node": "^10.9.2"

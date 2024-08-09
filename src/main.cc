@@ -4,7 +4,7 @@
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   if (VIPS_INIT ("js-lib-vips")) 
-    vips_error_exit (NULL);
+    vips_error_exit (nullptr);
 
   return NativeImage::Init(env, exports);
 }
