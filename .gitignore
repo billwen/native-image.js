@@ -128,3 +128,17 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+#
+# Gang
+#
+libvips
+build
+.idea
+.vscode
+.npmrc
+outputs
+output
+.DS_Store
+cmake-build-debug
+
