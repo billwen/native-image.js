@@ -18,11 +18,12 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
     if (info[0].IsString()) {
         std::string path = info[0].As<Napi::String>().Utf8Value();
         this->image_ = VImage::new_from_file(path.c_str(), VImage::option ()->set ("access", VIPS_ACCESS_SEQUENTIAL));
+        this->imageOriginalPath_ = path;
     } else if (info[0].IsObject()) {
 //        std::cout << "NativeImage object" << std::endl;
         Napi::Object options = info[0].As<Napi::Object>();
-        CreationOptions opts = parseCreationOptions(options);
-        this->image_ = createRGBImage(opts);
+        CreationOptions opts = parse_creation_options(options);
+        this->image_ = create_rgb_Image(opts);
         if (info.Length() >= 2) {
             // Extra arguments are available
             if (!info[1].IsNumber()) {
@@ -34,10 +35,10 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
                 this->mode_ = ImageMode::COUNTDOWN;
 
                 // Parse the countdown options
-                this->countdownOptions_ = parseCountdownOptions(options);
+                this->countdownOptions_ = parse_countdown_options(options);
 
                 // Parpare the template
-                initCountdownAnimation();
+                init_countdown_animation();
 
             } else {
                 Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
@@ -48,7 +49,7 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
     }
 }
 
-void NativeImage::initCountdownAnimation() {
+void NativeImage::init_countdown_animation() {
     // 1. Create an empty image with background color - allready done!
 
     std::vector<VImage> labels;
@@ -62,7 +63,7 @@ void NativeImage::initCountdownAnimation() {
     // 3. Create labels images
     for (const auto& [key, value]: this->countdownOptions_.labels) {
         ColoredTextOptions labelOpts;
-        labelOpts.textColor = hexadecimalColorToARGB(value.color);
+        labelOpts.textColor = hexadecimal_color_to_argb(value.color);
         labelOpts.font = value.font;
         labelOpts.fontFile = value.fontFile;
         labelOpts.width = value.position.width;
@@ -71,7 +72,7 @@ void NativeImage::initCountdownAnimation() {
         labelOpts.paddingTop = value.paddingTop;
         labelOpts.paddingBottom = value.paddingBottom;
         
-        VImage labelImage = coloredTextImage(value.text, labelOpts);
+        VImage labelImage = colored_text_image(value.text, labelOpts);
         labels.push_back(labelImage);
         xLabel.push_back(value.position.x);
         yLabel.push_back(value.position.y);
@@ -82,7 +83,7 @@ void NativeImage::initCountdownAnimation() {
 
     // 4. Initialize the digits images
     ColoredTextOptions digitOptions;
-    digitOptions.textColor = hexadecimalColorToARGB(this->countdownOptions_.digits.style.color);
+    digitOptions.textColor = hexadecimal_color_to_argb(this->countdownOptions_.digits.style.color);
     digitOptions.width = this->countdownOptions_.digits.style.width;
     digitOptions.height = this->countdownOptions_.digits.style.height;
     digitOptions.font = this->countdownOptions_.digits.style.font;
@@ -94,7 +95,7 @@ void NativeImage::initCountdownAnimation() {
             digitalText = jsvips::format(this->countdownOptions_.digits.textTemplate, digitalText.c_str());
         }
 
-        VImage digit = coloredTextImage(digitalText, digitOptions);
+        VImage digit = colored_text_image(digitalText, digitOptions);
         this->countdownDigits_.push_back(digit);
     }
 
@@ -104,12 +105,12 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "NativeImage", {
-        InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-        InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-        InstanceMethod<&NativeImage::RenderCountdownAnimation>("renderCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
-        StaticMethod<&NativeImage::Text>("text", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::CreateCountdownAnimation>("createCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::RenderCountdownAnimation>("renderCountdownAnimation", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        StaticMethod<&NativeImage::CreateText>("createText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
     });
 
     // Create a persistent reference to the class constructor. This will allow
@@ -152,18 +153,6 @@ Napi::Value NativeImage::CreateSRGBImage(const Napi::CallbackInfo& info) {
     // JS class the constructor represents.
     Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
     Napi::Object obj = constructor->New({info[0]});
-    return scope.Escape(napi_value(obj)).ToObject();
-}
-
-Napi::Value NativeImage::Text(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    Napi::EscapableHandleScope scope(env);
-
-    // Retrieve the instance data we stored during `Init()`. We only stored the
-    // constructor there, so we retrieve it here to create a new instance of the
-    // JS class the constructor represents.
-    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
-    Napi::Object obj = constructor->New({});
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
@@ -232,11 +221,11 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
 
             if (color.at(0) != '#') {
                 Napi::TypeError::New(env, "Invalid color").ThrowAsJavaScriptException();
-            }           
+            }
         }
     }
 
-    auto textColor = hexadecimalColorToARGB(color);
+    auto textColor = hexadecimal_color_to_argb(color);
 
     // Create a new text image
 
@@ -244,7 +233,7 @@ Napi::Value NativeImage::DrawText(const Napi::CallbackInfo& info) {
     // of the area we want to render to to have it break lines for you
     VImage textImage = VImage::text(text.c_str(), opts);
     std::cout << "textImage width: " << textImage.width() << " height: " << textImage.height() << std::endl;
-    
+
     // make a constant image the size of $text, but with every pixel red ... tag it
     // as srgb
     const std::vector<double> bgText = {double(textColor[1]), double(textColor[2]), double(textColor[3])};
@@ -280,8 +269,90 @@ Napi::Value NativeImage::Save(const Napi::CallbackInfo& info) {
     return Napi::Number::New(env, 0);
 }
 
-VImage NativeImage::createRGBImage(const CreationOptions& options) {
-    std::vector<u_char> bgColor = hexadecimalColorToARGB(options.bgColor);
+//
+// Prepare resources to generate countdown animation
+//
+Napi::Value NativeImage::CreateCountdownAnimation(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() == 0) {
+        Napi::TypeError::New(env, "Missing CountdownOptions").ThrowAsJavaScriptException();
+    }
+
+    // Retrieve the instance data we stored during `Init()`. We only stored the
+    // constructor there, so we retrieve it here to create a new instance of the
+    // JS class the constructor represents.
+    Napi::Value mode = Napi::Number::New(env, static_cast<int>(ImageMode::COUNTDOWN));
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Object obj = constructor->New({info[0], mode});
+    return scope.Escape(napi_value(obj)).ToObject();
+}
+
+/**
+ *   render_countdown_animation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
+ * @param info
+ * @return
+ */
+Napi::Value NativeImage::RenderCountdownAnimation(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() < 2) {
+        Napi::TypeError::New(env, "At least 2 parameter are required!").ThrowAsJavaScriptException();
+    }
+
+    if (!info[0].IsObject()) {
+        Napi::TypeError::New(env, "Invalid start time object").ThrowAsJavaScriptException();
+    }
+    Napi::Object startObj = info[0].As<Napi::Object>();
+    std::vector<int> start = parse_countdown_moment_with_number(startObj);
+
+    if (!info[1].IsNumber()) {
+        Napi::TypeError::New(env, "Invalid frames number").ThrowAsJavaScriptException();
+    }
+    int frames = info[1].As<Napi::Number>().Int32Value();
+
+    std::string outputFilePath;
+    if (info.Length() >= 3) {
+        // Directly save to file
+        if (!info[2].IsString()) {
+            Napi::TypeError::New(env, "Invalid file path").ThrowAsJavaScriptException();
+        }
+        outputFilePath = info[2].As<Napi::String>().Utf8Value();
+    }
+
+    // Generate animation
+    VImage gifImage = render_countdown_animation(start, frames);
+//    std::cout << "Render countdown animation with " << frames << " frames " << gifImage.height() << " height, " << gifImage.width()<< std::endl;
+
+    // Return buffer or save to file
+    if (outputFilePath.empty()) {
+        // write to a formatted memory buffer
+        size_t size;
+        void *buf;
+        gifImage.write_to_buffer(".gif", &buf, &size);
+        return Napi::Buffer<char>::Copy(env, static_cast<char*>(buf), size);
+    } else {
+        gifImage.write_to_file(outputFilePath.c_str());
+        return Napi::String::New(env, outputFilePath);
+    }
+}
+
+Napi::Value NativeImage::CreateText(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    // Retrieve the instance data we stored during `Init()`. We only stored the
+    // constructor there, so we retrieve it here to create a new instance of the
+    // JS class the constructor represents.
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Object obj = constructor->New({});
+    return scope.Escape(napi_value(obj)).ToObject();
+}
+
+VImage NativeImage::create_rgb_Image(const CreationOptions& options) {
+    std::vector<u_char> bgColor = hexadecimal_color_to_argb(options.bgColor);
     std::vector<double> channels = {(double)bgColor[1], (double)bgColor[2], (double)bgColor[3]};
 
     // full image.
@@ -291,7 +362,7 @@ VImage NativeImage::createRGBImage(const CreationOptions& options) {
     return formatted;
 }
 
-VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextOptions& options) {
+VImage NativeImage::colored_text_image(const std::string &text, const ColoredTextOptions& options) {
     auto genOpts = VImage::option();
     if (options.font.size() > 0) {
 //        std::cout << "font " << options.font << std::endl;
@@ -340,7 +411,58 @@ VImage NativeImage::coloredTextImage(const std::string &text, const ColoredTextO
     return coloredImage;
 }
 
-CreationOptions NativeImage::parseCreationOptions(const Napi::Object& options) {
+VImage NativeImage::render_countdown_animation(const std::vector<int> &duration, int frames) {
+    if ( this->mode_ != ImageMode::COUNTDOWN ) {
+        throw std::invalid_argument("The object is not initialized with countdown mode");
+    }
+
+    int numFrames = frames > 0 ? frames : 1;
+
+    std::vector<VImage> pages;
+    std::vector<int> newDuration = duration;
+
+    // Build the position array
+    std::vector<int> xLabel;
+    std::vector<int> yLabel;
+    for (auto cp : this->countdownOptions_.digits.positions) {
+        xLabel.push_back(cp.position.x);
+        yLabel.push_back(cp.position.y);
+    }
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
+
+    for (int i = 0; i < numFrames; i++) {
+
+        std::vector<VImage> subImages;
+        // Add background image
+        subImages.push_back(this->image_);
+
+        for (int j = 0; j < lengthOfCountdownMomentParts; j++) {
+            int digitValue = newDuration.at(j);
+            std::string k = countdownMomentPartNames[j];
+            subImages.push_back(this->countdownDigits_.at(digitValue));
+        }
+
+        // Build a frame
+        VImage page = VImage::composite(subImages, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
+        pages.push_back(page);
+
+        // Next frame
+        newDuration = minus_one_second_to_duration(newDuration);
+    }
+
+    // Join a set of pages vertically to make a multipage image
+    VImage animation = VImage::arrayjoin(pages, VImage::option()->set("across", 1));
+    VImage gifData = animation.copy();
+    gifData.set("page-height", this->image_.height());
+
+    // frame delays are in milliseconds ... 300 is pretty slow!
+    std::vector<int> delayArray(pages.size(), 1000);
+    gifData.set("delay", delayArray);
+
+    return gifData;
+}
+
+CreationOptions NativeImage::parse_creation_options(const Napi::Object& options) {
     CreationOptions opts;
 
     Napi::Value width = options.Get("width");
@@ -373,7 +495,7 @@ CreationOptions NativeImage::parseCreationOptions(const Napi::Object& options) {
 /**
  * Parse position options
  */
-Position2D NativeImage::parsePosition2D(const Napi::Object& options) {
+Position2D NativeImage::parse_position_2d(const Napi::Object& options) {
     Position2D position;
 
     // attribute "x" - required
@@ -422,7 +544,7 @@ Position2D NativeImage::parsePosition2D(const Napi::Object& options) {
 /**
  * Parse countdown component options
  */
-CountdownComponent NativeImage::parseCountdownComponent(const Napi::Object& options, bool ignoreText) {
+CountdownComponent NativeImage::parse_countdown_component(const Napi::Object& options, bool ignoreText) {
     CountdownComponent component;
 
     // attribute "text" - required / optional
@@ -461,7 +583,7 @@ CountdownComponent NativeImage::parseCountdownComponent(const Napi::Object& opti
     if (options.Has("position")) {
         if (options.Get("position").IsObject()) {
             Napi::Object positionObj = options.Get("position").As<Napi::Object>();
-            component.position = parsePosition2D(positionObj);
+            component.position = parse_position_2d(positionObj);
         } else {
             Napi::TypeError::New(options.Env(), "Attribute position must be an object").ThrowAsJavaScriptException();
         }
@@ -508,13 +630,13 @@ CountdownComponent NativeImage::parseCountdownComponent(const Napi::Object& opti
     return component;
 }
 
-CountdownComponentPosition NativeImage::parseCountdownComponentPosition(const Napi::Object& options) {
+CountdownComponentPosition NativeImage::parse_countdown_component_position(const Napi::Object& options) {
     CountdownComponentPosition cp;
 
     if (options.Has("position")) {
         if (options.Get("position").IsObject()) {
             Napi::Object positionObj = options.Get("position").As<Napi::Object>();
-            cp.position = parsePosition2D(positionObj);
+            cp.position = parse_position_2d(positionObj);
         } else {
             Napi::TypeError::New(options.Env(), "Attribute position must be an object").ThrowAsJavaScriptException();
         }
@@ -525,7 +647,7 @@ CountdownComponentPosition NativeImage::parseCountdownComponentPosition(const Na
     return cp;
 }
 
-CountdownComponentStyle NativeImage::parseCountdownComponentStyle(const Napi::Object& options) {
+CountdownComponentStyle NativeImage::parse_countdown_component_style(const Napi::Object& options) {
     CountdownComponentStyle cs;
 
     if (options.Has("color")) {
@@ -587,10 +709,10 @@ CountdownComponentStyle NativeImage::parseCountdownComponentStyle(const Napi::Ob
 /**
  * Parse countdown options
  */
-CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options) {
+CountdownOptions NativeImage::parse_countdown_options(const Napi::Object& options) {
     CountdownOptions opts;
 
-    CreationOptions creationOpts = parseCreationOptions(options);
+    CreationOptions creationOpts = parse_creation_options(options);
     opts.width = creationOpts.width;
     opts.height = creationOpts.height;
     opts.bgColor = creationOpts.bgColor;
@@ -606,7 +728,7 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
                 Napi::Value label = labelsObj.Get(key);
                 if (label.IsObject()) {
                     Napi::Object labelObj = label.As<Napi::Object>();
-                    CountdownComponent component = parseCountdownComponent(labelObj);
+                    CountdownComponent component = parse_countdown_component(labelObj);
                     opts.labels[key] = component;
                 } else {
                     Napi::TypeError::New(options.Env(), "Invalid format label object").ThrowAsJavaScriptException();
@@ -633,7 +755,7 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
                         std::string k = countdownMomentPartNames[i];
                         if (positionsObj.Has(k)) {
                             if (positionsObj.Get(k).IsObject()) {
-                                CountdownComponentPosition cp = parseCountdownComponentPosition(positionsObj.Get(k).As<Napi::Object>());
+                                CountdownComponentPosition cp = parse_countdown_component_position(positionsObj.Get(k).As<Napi::Object>());
                                 opts.digits.positions[i] = cp;
                             } else {
                                 Napi::TypeError::New(options.Env(), "Invalid format position object").ThrowAsJavaScriptException();
@@ -654,7 +776,7 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
                 Napi::Value styles = digitsObj.Get("style");
                 if (styles.IsObject()) {
                     Napi::Object stylesObj = styles.As<Napi::Object>();
-                    opts.digits.style = parseCountdownComponentStyle(stylesObj);
+                    opts.digits.style = parse_countdown_component_style(stylesObj);
 //                    std::cout << "style color: " << opts.digits.style.color << " width: " << opts.width << " height: " << opts.height << std::endl;
                 } else {
                     Napi::TypeError::New(options.Env(), "Parameter styles should be an object").ThrowAsJavaScriptException();
@@ -680,7 +802,7 @@ CountdownOptions NativeImage::parseCountdownOptions(const Napi::Object& options)
     return opts;
 }
 
-std::vector<int> NativeImage::parseCountdownMomentWithNumber(const Napi::Object &options) {
+std::vector<int> NativeImage::parse_countdown_moment_with_number(const Napi::Object &options) {
     std::vector<int> moment;
 
     for (int i = 0; i < lengthOfCountdownMomentParts; i++) {
@@ -712,7 +834,7 @@ std::vector<int> NativeImage::parseCountdownMomentWithNumber(const Napi::Object 
  * @return array a decimal ARGB array, return black if the hex string is invalid
  * 
  */
-std::vector<u_char> NativeImage::hexadecimalColorToARGB(const std::string& hex) {
+std::vector<u_char> NativeImage::hexadecimal_color_to_argb(const std::string& hex) {
     const std::vector<u_char> defaultColor = {0, 0, 0, 0};
     if (hex.length() == 0) {
         return defaultColor;
@@ -761,128 +883,7 @@ std::vector<u_char> NativeImage::hexadecimalColorToARGB(const std::string& hex) 
     return {alpha, red, green, blue};
 }
 
-VImage NativeImage::renderCountdownAnimation(const std::vector<int> &duration, int frames) {
-    if ( this->mode_ != ImageMode::COUNTDOWN ) {
-        throw std::invalid_argument("The object is not initialized with countdown mode");
-    }
-
-    int numFrames = frames > 0 ? frames : 1;
-
-    std::vector<VImage> pages;
-    std::vector<int> newDuration = duration;
-
-    // Build the position array
-    std::vector<int> xLabel;
-    std::vector<int> yLabel;
-    for (auto cp : this->countdownOptions_.digits.positions) {
-        xLabel.push_back(cp.position.x);
-        yLabel.push_back(cp.position.y);
-    }
-    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
-
-    for (int i = 0; i < numFrames; i++) {
-
-        std::vector<VImage> subImages;
-        // Add background image
-        subImages.push_back(this->image_);
-
-        for (int j = 0; j < lengthOfCountdownMomentParts; j++) {
-            int digitValue = newDuration.at(j);
-            std::string k = countdownMomentPartNames[j];
-            subImages.push_back(this->countdownDigits_.at(digitValue));
-        }
-
-        // Build a frame
-        VImage page = VImage::composite(subImages, modes, VImage::option()->set("x", xLabel)->set("y", yLabel));
-        pages.push_back(page);
-
-        // Next frame
-        newDuration = minusOneSecondToDuration(newDuration);
-    }
-
-    // Join a set of pages vertically to make a multipage image
-    VImage animation = VImage::arrayjoin(pages, VImage::option()->set("across", 1));
-    VImage gifData = animation.copy();
-    gifData.set("page-height", this->image_.height());
-
-    // frame delays are in milliseconds ... 300 is pretty slow!
-    std::vector<int> delayArray(pages.size(), 1000);
-    gifData.set("delay", delayArray);
-
-    return gifData;
-}
-
-//
-// Prepare resources to generate countdown animation
-//
-Napi::Value NativeImage::CreateCountdownAnimation(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    Napi::EscapableHandleScope scope(env);
-
-    if (info.Length() == 0) {
-        Napi::TypeError::New(env, "Missing CountdownOptions").ThrowAsJavaScriptException();
-    }
-
-    // Retrieve the instance data we stored during `Init()`. We only stored the
-    // constructor there, so we retrieve it here to create a new instance of the
-    // JS class the constructor represents.
-    Napi::Value mode = Napi::Number::New(env, static_cast<int>(ImageMode::COUNTDOWN));
-    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
-    Napi::Object obj = constructor->New({info[0], mode});
-    return scope.Escape(napi_value(obj)).ToObject();
-}
-
-/**
- *   renderCountdownAnimation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
- * @param info
- * @return
- */
-Napi::Value NativeImage::RenderCountdownAnimation(const Napi::CallbackInfo& info) {
-    Napi::Env env = info.Env();
-    Napi::EscapableHandleScope scope(env);
-
-    if (info.Length() < 2) {
-        Napi::TypeError::New(env, "At least 2 parameter are required!").ThrowAsJavaScriptException();
-    }
-
-    if (!info[0].IsObject()) {
-        Napi::TypeError::New(env, "Invalid start time object").ThrowAsJavaScriptException();
-    }
-    Napi::Object startObj = info[0].As<Napi::Object>();
-    std::vector<int> start = parseCountdownMomentWithNumber(startObj);
-
-    if (!info[1].IsNumber()) {
-        Napi::TypeError::New(env, "Invalid frames number").ThrowAsJavaScriptException();
-    }
-    int frames = info[1].As<Napi::Number>().Int32Value();
-
-    std::string outputFilePath;
-    if (info.Length() >= 3) {
-        // Directly save to file
-        if (!info[2].IsString()) {
-            Napi::TypeError::New(env, "Invalid file path").ThrowAsJavaScriptException();
-        }
-        outputFilePath = info[2].As<Napi::String>().Utf8Value();
-    }
-
-    // Generate animation
-    VImage gifImage = renderCountdownAnimation(start, frames);
-    std::cout << "Render countdown animation with " << frames << " frames " << gifImage.height() << " height, " << gifImage.width()<< std::endl;
-
-    // Return buffer or save to file
-    if (outputFilePath.empty()) {
-        // write to a formatted memory buffer
-        size_t size;
-        void *buf;
-        gifImage.write_to_buffer(".gif", &buf, &size);
-        return Napi::Buffer<char>::Copy(env, static_cast<char*>(buf), size);
-    } else {
-        gifImage.write_to_file(outputFilePath.c_str());
-        return Napi::String::New(env, outputFilePath);
-    }
-}
-
-std::vector<int> NativeImage::minusOneSecondToDuration(const std::vector<int>& duration) {
+std::vector<int> NativeImage::minus_one_second_to_duration(const std::vector<int>& duration) {
     int size = duration.size();
     if (size != lengthOfCountdownMomentParts) {
         throw std::invalid_argument("Invalid duration size");

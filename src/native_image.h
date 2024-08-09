@@ -103,7 +103,7 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Constructor
     explicit NativeImage(const Napi::CallbackInfo& info);
 
-    void initCountdownAnimation();
+    void init_countdown_animation();
 
     // Init function for setting the export key to JS
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -111,48 +111,55 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
   private:
     // Create an empty image with background color
     static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
+    // Draw text on the image
+    Napi::Value DrawText(const Napi::CallbackInfo& info);
+    // Save the image to a file
+    Napi::Value Save(const Napi::CallbackInfo& info);
 
     static Napi::Value CreateCountdownAnimation(const Napi::CallbackInfo& info);
     Napi::Value RenderCountdownAnimation(const Napi::CallbackInfo& info);
 
     // Create an text image with color
-    static Napi::Value Text(const Napi::CallbackInfo& info);
-    
-    // Draw text on the image
-    Napi::Value DrawText(const Napi::CallbackInfo& info);
-
-    // Save the image to a file
-    Napi::Value Save(const Napi::CallbackInfo& info);
+    static Napi::Value CreateText(const Napi::CallbackInfo& info);
 
     // create an empty image
-    static vips::VImage createRGBImage(const CreationOptions& options);
+    static vips::VImage create_rgb_Image(const CreationOptions& options);
 
-    static vips::VImage coloredTextImage(const std::string &text, const ColoredTextOptions& options);
+    static vips::VImage colored_text_image(const std::string &text, const ColoredTextOptions& options);
 
-    vips::VImage renderCountdownAnimation(const std::vector<int>& duration, int frames);
+    vips::VImage render_countdown_animation(const std::vector<int>& duration, int frames);
 
     //
     // Help functions
     //
-    static CreationOptions            parseCreationOptions(const Napi::Object& options);
-    static CountdownOptions           parseCountdownOptions(const Napi::Object& options);
-    static CountdownComponent         parseCountdownComponent(const Napi::Object& options, bool ignoreText = false);
-    static Position2D                 parsePosition2D(const Napi::Object& options);
-    static CountdownComponentPosition parseCountdownComponentPosition(const Napi::Object& options);
-    static CountdownComponentStyle    parseCountdownComponentStyle(const Napi::Object& options);
-    static std::vector<int>           parseCountdownMomentWithNumber(const Napi::Object& options);
+    static Position2D                 parse_position_2d(const Napi::Object& options);
+    static CreationOptions            parse_creation_options(const Napi::Object& options);
 
-    static std::vector<u_char>        hexadecimalColorToARGB(const std::string& hex);
-    static std::vector<int>           minusOneSecondToDuration(const std::vector<int>& duration);
+    static CountdownComponent         parse_countdown_component(const Napi::Object& options, bool ignoreText = false);
+    static CountdownComponentPosition parse_countdown_component_position(const Napi::Object& options);
+    static CountdownComponentStyle    parse_countdown_component_style(const Napi::Object& options);
+    static std::vector<int>           parse_countdown_moment_with_number(const Napi::Object& options);
+    static CountdownOptions           parse_countdown_options(const Napi::Object& options);
+
+    static std::vector<u_char>        hexadecimal_color_to_argb(const std::string& hex);
+    static std::vector<int>           minus_one_second_to_duration(const std::vector<int>& duration);
 
     //
     // Internal instance of an image object
     //
+
+    // Internal image object
     vips::VImage image_;
+
+    // What the image_ is read from a file, this is the path
+    std::string imageOriginalPath_;
+
+    // Image mode, either IMAGE or COUNTDOWN
     ImageMode mode_;
 
-    // Countdown animation
+    // Countdown animation generation options
     CountdownOptions countdownOptions_;
+    // Countdown animation cache for performance
     std::vector<vips::VImage> countdownDigits_;
 };
 
