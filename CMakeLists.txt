@@ -3,7 +3,7 @@ cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0042 NEW)
 set (CMAKE_CXX_STANDARD 20)
 
-project (js-lib-vips)
+project (native-image)
 
 # the `pkg_check_modules` function is created with this call
 find_package(PkgConfig REQUIRED) 

@@ -5,7 +5,7 @@
     },
     "targets": [
         {
-            "target_name": "js-lib-vips-<(platform_and_arch)",
+            "target_name": "native-image-<(platform_and_arch)",
             "cflags!": [ "-fno-exceptions" ],
             "cflags_cc!": [ "-fno-exceptions"],
             "sources": [

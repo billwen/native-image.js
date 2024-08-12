@@ -72,7 +72,8 @@ export declare class NativeImage {
   // Countdown banner functions
   //
   static createCountdownAnimation(opts: CountdownOptions): NativeImage;
-  renderCountdownAnimation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
+  renderCountdownAnimation(start: CountdownMoment<number>, frames: number): Buffer;
+  renderCountdownAnimation(start: CountdownMoment<number>, frames: number, toFile: string): string;
 
   static countdown(opts: CountdownOptions): number;
 
