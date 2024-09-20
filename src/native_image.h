@@ -7,7 +7,9 @@
 
 enum class ImageMode {
     IMAGE,
-    COUNTDOWN
+    COUNTDOWN,
+    TEXTIMAGE,
+    NUMBER_OF_MODES
 };
 
 enum class CountdownMomentPart {
@@ -25,6 +27,27 @@ const std::string countdownMomentPartNames[lengthOfCountdownMomentParts] = {
   "hours",
   "minutes",
   "seconds"
+};
+
+struct NativeTextElement {
+    std::string text;
+    std::string fontFile;
+    std::vector<double> color {0.0, 0.0, 0.0};
+    std::vector<double> bgColor {255.0, 255.0, 255.0};
+    int containerWidth {0};
+    int containerHeight {0};
+    int offsetTop {0};
+    int offsetLeft {0};
+    int cacheIndex {-1};
+};
+
+struct NativeTextImageOptions {
+    int width {0};
+    int height {0};
+    std::vector<double> bgColor {255.0, 255.0, 255.0};
+
+    // Texts on template
+    std::vector<NativeTextElement> texts;
 };
 
 struct CreationOptions {
@@ -108,9 +131,30 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     // Init function for setting the export key to JS
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
-  private:
+
+    // Create an empty image with background color
+    static vips::VImage newImageWithBgColor(int width, int height, const std::vector<double>& bgColor);
+
+    // Create a text image with color and background color
+    static vips::VImage newImageOfTextElement(const std::string &text, const std::string &fontFile, const std::vector<double> &color, const std::vector<double> &bgColor);
+
+    // Create an text image with color
+    static vips::VImage newImageWithTexts(const NativeTextImageOptions& options);
+
+    // rebuild the cache of images for performance
+    void rebuildTextImageCache(const std::vector<NativeTextElement> &texts);
+    void rebuildTextImageCache2(const std::vector<NativeTextElement> &texts, int trimLeft);
+    int addTextElements(const std::vector<NativeTextElement> &elements);
+
+private:
     // Create an empty image with background color
     static Napi::Value CreateSRGBImage(const Napi::CallbackInfo& info);
+
+    static Napi::Value NewTextImage(const Napi::CallbackInfo& info);
+    Napi::Value RebuildTextElementCache(const Napi::CallbackInfo& info);
+    Napi::Value RebuildTextElementCache2(const Napi::CallbackInfo& info);
+    Napi::Value AddTextElements(const Napi::CallbackInfo& info);
+
     // Draw text on the image
     Napi::Value DrawText(const Napi::CallbackInfo& info);
     // Save the image to a file
@@ -129,6 +173,8 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
 
     vips::VImage render_countdown_animation(const std::vector<int>& duration, int frames);
 
+
+
     //
     // Help functions
     //
@@ -144,12 +190,18 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     static std::vector<u_char>        hexadecimal_color_to_argb(const std::string& hex);
     static std::vector<int>           minus_one_second_to_duration(const std::vector<int>& duration);
 
+    static NativeTextElement        toNativeTextElement(const Napi::Object& options);
+    static NativeTextImageOptions   toNativeTextImageOptions(const Napi::Object& options);
+
     //
     // Internal instance of an image object
     //
 
     // Internal image object
     vips::VImage image_;
+
+    // Internal image elements cache
+    std::vector<vips::VImage> imageElements_;
 
     // What the image_ is read from a file, this is the path
     std::string imageOriginalPath_;

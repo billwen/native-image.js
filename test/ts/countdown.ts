@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {CountdownOptions, HexadecimalColor, NativeImage} from '../../index';
+import {CountdownOptions, HexadecimalColor, NativeImage, TextElement, TextImageOptions} from '../../index';
 
 // Prepare output folder
 const outputFolder = "../../output";
@@ -11,6 +11,7 @@ if (!fs.existsSync(outputFolderPath)) {
 
 const outputFileName = "countdown-3.gif";
 const outputFilePath: string = path.resolve(outputFolderPath, outputFileName);
+const textImageOutputFilePath = path.resolve(outputFolderPath, "text-image.png");
 
 const labelColor: HexadecimalColor = "#ffffff";
 const digitColor: HexadecimalColor = "#ffffff";
@@ -98,3 +99,135 @@ const pt = Date.now() - start;
 //emptyImage.save(outputFilePath);
 console.log(`Processing time ${pt}`);
 
+// https://docs.gtk.org/Pango/pango_markup.html
+// New test
+const days: TextElement = {
+    text: "<span size='16pt' face='Noto IKEA Latin'>days</span>",
+    fontFile: fontRegularFile,
+    color: [255, 255, 255],
+    bgColor: [204, 0, 8],
+    containerHeight: 30,
+    containerWidth: 60,
+    offsetTop: 40
+}
+
+const hrs: TextElement = {
+    ...days,
+    text: "<span size='16pt' face='Noto IKEA Latin'>hrs</span>",
+    offsetLeft: 71,
+    offsetTop: 38
+}
+
+const min: TextElement = {
+    ...days,
+    text: "<span size='16pt' face='Noto IKEA Latin'>min</span>",
+    offsetLeft: 142,
+    offsetTop: 38
+}
+
+const sec: TextElement = {
+    ...days,
+    text: "<span size='16pt' face='Noto IKEA Latin'>sec</span>",
+    offsetLeft: 213
+}
+
+const dd: TextElement = {
+    text: "<span size='32pt' face='Noto IKEA Latin' weight='bold'>01</span>",
+    fontFile: fontBoldFile,
+    color: [255, 255, 255],
+    bgColor: [204, 0, 8],
+    containerHeight: 40,
+    containerWidth: 60,
+}
+
+const hh: TextElement = {
+    ...dd,
+    text: "<span size='32pt' face='Noto IKEA Latin' weight='bold'>13</span>",
+    offsetLeft: 71
+};
+
+const mm: TextElement = {
+    ...dd,
+    text: "<span size='32pt' face='Noto IKEA Latin' weight='bold'>24</span>",
+    offsetLeft: 142
+};
+
+const ss: TextElement = {
+    ...dd,
+    text: "<span size='32pt' face='Noto IKEA Latin' weight='bold'>58</span>",
+    offsetLeft: 213
+};
+
+const tiOptions: TextImageOptions  = {
+    width: 273,
+    height: 71,
+    bgColor: [204, 0, 8],
+    texts: [days, hrs, min, sec, dd, hh, mm, ss]
+};
+
+const options4: TextImageOptions = {
+    ...tiOptions,
+    texts: [days, hrs, min, sec]
+};
+
+const start2 = Date.now();
+const template2 = NativeImage.newTextImage(tiOptions);
+const pt2 = Date.now() - start;
+console.log(`Processing time of new Text image ${pt2} ms`);
+
+// 0 - 99 array
+const arr = Array.from(Array(100).keys());
+const digits = arr.map((i) => `00${i}`.slice(-2));
+
+const elements = digits.map((i) => `<span size='32pt' face='Noto IKEA Latin' weight='bold'>${i}</span>`)
+    .map((i) => ({
+        ...dd,
+        text: i
+    }));
+
+const elements2 = digits.map((i) => `<span size='32pt' face='Noto IKEA Latin' weight='bold'>0${i}</span>`)
+    .map((i) => ({
+        ...dd,
+        text: i
+    }));
+
+const start3 = Date.now();
+template2.rebuildTextElementCache(elements);
+const pt3 = Date.now() - start3;
+console.log(`Processing time of rebuild Text image ${pt3} ms`);
+
+template2.rebuildTextElementCache2(elements2, 16);
+template2.save(textImageOutputFilePath);
+
+const Output4FilePath = path.resolve(outputFolderPath, "output4.png");
+
+const template4 = NativeImage.newTextImage(options4);
+template4.rebuildTextElementCache2(elements2, 18);
+
+
+const dd4: TextElement = {
+    ...dd,
+    cacheIndex: 1
+}
+
+const hh4: TextElement = {
+    ...hh,
+    cacheIndex: 13
+};
+
+const mm4: TextElement = {
+    ...mm,
+    cacheIndex: 24
+};
+
+const ss4: TextElement = {
+    ...ss,
+    cacheIndex: 58
+};
+
+const start4 = Date.now();
+template4.addTextElements([dd4, hh4, mm4, ss4 ]);
+const pt4 = Date.now() - start4;
+console.log(`Processing time of add Text image ${pt4} ms`);
+
+template4.save(Output4FilePath);

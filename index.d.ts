@@ -63,8 +63,32 @@ export type CountdownOptions = CreationOptions & {
     };
 };
 
+export type TextElement = {
+    text: string;
+    fontFile?: string;
+    color: number[];
+    bgColor: number[];
+    containerWidth: number;
+    containerHeight: number;
+    offsetTop?: number;
+    offsetLeft?: number;
+    cacheIndex?: number;
+};
+
+export type TextImageOptions = {
+    width: number;
+    height: number;
+    bgColor: number[];
+    texts: TextElement[];
+};
+
 export declare class NativeImage {
   constructor(filePath: string);
+
+  static newTextImage(opts: TextImageOptions): NativeImage;
+  rebuildTextElementCache(texts: TextElement[]): number;
+  rebuildTextElementCache2(texts: TextElement[], trimLeftWidth: number): number;
+  addTextElements(texts: TextElement[]): number;
 
   static createSRGBImage(opts: CreationOptions): NativeImage;
 

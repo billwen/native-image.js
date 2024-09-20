@@ -20,30 +20,34 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
         this->image_ = VImage::new_from_file(path.c_str(), VImage::option ()->set ("access", VIPS_ACCESS_SEQUENTIAL));
         this->imageOriginalPath_ = path;
     } else if (info[0].IsObject()) {
-//        std::cout << "NativeImage object" << std::endl;
-        Napi::Object options = info[0].As<Napi::Object>();
-        CreationOptions opts = parse_creation_options(options);
-        this->image_ = create_rgb_Image(opts);
-        if (info.Length() >= 2) {
-            // Extra arguments are available
-            if (!info[1].IsNumber()) {
-                Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
-            }
-
-            // create the template
-            if (info[1].As<Napi::Number>().Int32Value() == 1) {
-                this->mode_ = ImageMode::COUNTDOWN;
-
-                // Parse the countdown options
-                this->countdownOptions_ = parse_countdown_options(options);
-
-                // Parpare the template
-                init_countdown_animation();
-
-            } else {
-                Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
-            }
+        if (info.Length() < 2 || !info[1].IsNumber()) {
+            Napi::TypeError::New(env, "Missing mode").ThrowAsJavaScriptException();
         }
+        int mode = info[1].As<Napi::Number>().Int32Value();
+        auto options = info[0].As<Napi::Object>();
+
+        if (mode == static_cast<int>(ImageMode::COUNTDOWN)) {
+            this->mode_ = ImageMode::COUNTDOWN;
+            CreationOptions opts = parse_creation_options(options);
+            this->image_ = create_rgb_Image(opts);
+            this->countdownOptions_ = parse_countdown_options(options);
+            init_countdown_animation();
+        } else if (mode == static_cast<int>(ImageMode::TEXTIMAGE)) {
+
+            this->mode_ = ImageMode::TEXTIMAGE;
+
+            try {
+                NativeTextImageOptions textOptions = toNativeTextImageOptions(options);
+                this->image_ = newImageWithTexts(textOptions);
+            } catch (const std::exception& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+                Napi::TypeError::New(env, e.what()).ThrowAsJavaScriptException();
+            }
+        } else {
+            Napi::TypeError::New(env, "Invalid mode").ThrowAsJavaScriptException();
+        }
+
+
     } else {
         Napi::TypeError::New(env, "Invalid the first argument.").ThrowAsJavaScriptException();
     }
@@ -105,6 +109,10 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
     Napi::HandleScope scope(env);
 
     Napi::Function func = DefineClass(env, "NativeImage", {
+        StaticMethod<&NativeImage::NewTextImage>("newTextImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::RebuildTextElementCache>("rebuildTextElementCache", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::RebuildTextElementCache2>("rebuildTextElementCache2", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
+        InstanceMethod<&NativeImage::AddTextElements>("addTextElements", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         StaticMethod<&NativeImage::CreateSRGBImage>("createSRGBImage", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::Save>("save", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
         InstanceMethod<&NativeImage::DrawText>("drawText", static_cast<napi_property_attributes>(napi_writable | napi_configurable)),
@@ -289,6 +297,113 @@ Napi::Value NativeImage::CreateCountdownAnimation(const Napi::CallbackInfo& info
     return scope.Escape(napi_value(obj)).ToObject();
 }
 
+//
+// Create an Text image
+//
+Napi::Value NativeImage::NewTextImage(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() == 0) {
+        Napi::TypeError::New(env, "Missing TextImageOptions").ThrowAsJavaScriptException();
+    }
+
+    Napi::Value mode = Napi::Number::New(env, static_cast<int>(ImageMode::TEXTIMAGE));
+
+    // Retrieve the instance data we stored during `Init()`. We only stored the
+    // constructor there, so we retrieve it here to create a new instance of the
+    // JS class the constructor represents.
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Object obj = constructor->New({info[0], mode});
+    return scope.Escape(napi_value(obj)).ToObject();
+}
+
+Napi::Value NativeImage::RebuildTextElementCache(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() == 0) {
+        Napi::TypeError::New(env, "Missing TextElement to be cached").ThrowAsJavaScriptException();
+    }
+
+    if (!info[0].IsArray()) {
+        Napi::TypeError::New(env, "Invalid TextElement array").ThrowAsJavaScriptException();
+    }
+    Napi::Array textArray = info[0].As<Napi::Array>();
+
+    std::vector<NativeTextElement> textElements;
+    for (uint32_t i = 0; i < textArray.Length(); i++) {
+        if (!textArray.Get(i).IsObject()) {
+            Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
+        }
+        Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
+        NativeTextElement element = toNativeTextElement(textObj);
+        textElements.push_back(element);
+    }
+
+    this->rebuildTextImageCache(textElements);
+
+    return Napi::Number::New(env, textElements.size());
+}
+
+Napi::Value NativeImage::RebuildTextElementCache2(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() < 2) {
+        Napi::TypeError::New(env, "Missing TextElement to be cached").ThrowAsJavaScriptException();
+    }
+
+    if (!info[0].IsArray()) {
+        Napi::TypeError::New(env, "Invalid TextElement array").ThrowAsJavaScriptException();
+    }
+    Napi::Array textArray = info[0].As<Napi::Array>();
+
+    std::vector<NativeTextElement> textElements;
+    for (uint32_t i = 0; i < textArray.Length(); i++) {
+        if (!textArray.Get(i).IsObject()) {
+            Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
+        }
+        Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
+        NativeTextElement element = toNativeTextElement(textObj);
+        textElements.push_back(element);
+    }
+
+    int trimLeft = info[1].As<Napi::Number>().Int32Value();
+
+    this->rebuildTextImageCache2(textElements, trimLeft);
+
+    return Napi::Number::New(env, textElements.size());
+}
+
+Napi::Value NativeImage::AddTextElements(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    Napi::EscapableHandleScope scope(env);
+
+    if (info.Length() == 0) {
+        Napi::TypeError::New(env, "Missing TextElements to be added").ThrowAsJavaScriptException();
+    }
+
+    if (!info[0].IsArray()) {
+        Napi::TypeError::New(env, "Invalid TextElement array").ThrowAsJavaScriptException();
+    }
+    Napi::Array textArray = info[0].As<Napi::Array>();
+
+    std::vector<NativeTextElement> textElements;
+    for (uint32_t i = 0; i < textArray.Length(); i++) {
+        if (!textArray.Get(i).IsObject()) {
+            Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
+        }
+        Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
+        NativeTextElement element = toNativeTextElement(textObj);
+        textElements.push_back(element);
+    }
+
+    int count = this->addTextElements(textElements);
+
+    return Napi::Number::New(env, count);
+}
+
 /**
  *   render_countdown_animation(start: CountdownMoment<number>, frames: number, toFile?: string): Buffer | string;
  * @param info
@@ -360,6 +475,120 @@ VImage NativeImage::create_rgb_Image(const CreationOptions& options) {
     VImage formatted = emptyImage.cast(VipsBandFormat::VIPS_FORMAT_UCHAR).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
 
     return formatted;
+}
+
+VImage NativeImage::newImageWithBgColor(int width, int height, const std::vector<double>& bgColor) {
+
+    VImage emptyImage = VImage::black(width, height, VImage::option()->set("bands", 3)) + bgColor;
+    return emptyImage.cast(VipsBandFormat::VIPS_FORMAT_UCHAR).copy(VImage::option()->set("interpretation", VIPS_INTERPRETATION_sRGB));
+}
+
+VImage NativeImage::newImageOfTextElement(const std::string &text, const std::string &fontFile, const std::vector<double> &color, const std::vector<double> &bgColor) {
+    auto genOpts = VImage::option();
+    if (!fontFile.empty()) {
+        genOpts->set("fontfile", fontFile.c_str());
+    }
+
+    VImage textAlpha = VImage::text(text.c_str(), genOpts);
+
+    return textAlpha.ifthenelse(color, bgColor, VImage::option()->set("blend", true));
+}
+
+VImage NativeImage::newImageWithTexts(const NativeTextImageOptions &options) {
+
+    // Draw background image
+    std::clog << "Create an image with texts, colors " << options.bgColor.size() << std::endl;
+    VImage canvas = newImageWithBgColor(options.width, options.height, options.bgColor);
+
+    if (options.texts.empty()) {
+        std::clog << "No text to render" << std::endl;
+        return canvas;
+    }
+
+    // Generate the text image
+    std::vector<VImage> imgStack;
+    std::vector<int> xPos;
+    std::vector<int> yPos;
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
+
+    // Push the background image to stack
+    imgStack.push_back(canvas);
+
+    for (const auto& text : options.texts) {
+        const VImage textImage = newImageOfTextElement(text.text, text.fontFile, text.color, text.bgColor);
+
+        // Do subtle adjustment to the image for alignment
+        if ( textImage.width() > text.containerWidth || textImage.height() > text.containerHeight ) {
+            std::clog << "Text image " << text.text << "is [" << textImage.width() << "," << textImage.height() <<  "] larger than the container [" << text.containerWidth << "," << text.containerHeight << "]." << std::endl;
+        }
+        const int hSpace = (text.containerWidth - textImage.width()) / 2;
+        const int vSpace = (text.containerHeight - textImage.height()) / 2;
+
+        // Push the text image to stack
+        imgStack.push_back(textImage);
+        xPos.push_back(text.offsetLeft + hSpace);
+        yPos.push_back(text.offsetTop + vSpace);
+    }
+
+    // Compose the images
+    return VImage::composite(imgStack, modes, VImage::option()->set("x", xPos)->set("y", yPos));
+}
+
+int NativeImage::addTextElements(const std::vector<NativeTextElement> &elements) {
+    std::vector<VImage> textImages;
+    std::vector<int> xPos;
+    std::vector<int> yPos;
+    std::vector<int> modes = {VipsBlendMode::VIPS_BLEND_MODE_OVER};
+
+    textImages.push_back(this->image_);
+    for (const auto& element : elements) {
+        if (element.cacheIndex >= 0 && element.cacheIndex < static_cast<int>(this->imageElements_.size())) {
+            // Hit the cache
+            std::clog << "Hit the cache for " << element.text << std::endl;
+            const int y = ( element.containerHeight - this->imageElements_.at(element.cacheIndex).height() ) / 2;
+            const int x = ( element.containerWidth - this->imageElements_.at(element.cacheIndex).width() ) / 2;
+            textImages.push_back(this->imageElements_.at(element.cacheIndex));
+            xPos.push_back(element.offsetLeft + x);
+            yPos.push_back(element.offsetTop + y);
+            continue;
+        } else {
+            VImage textImage = newImageOfTextElement(element.text, element.fontFile, element.color, element.bgColor);
+            textImages.push_back(textImage);
+            const int y = ( element.containerHeight - textImage.height() ) / 2;
+            const int x = ( element.containerWidth - textImage.width() ) / 2;
+            xPos.push_back(element.offsetLeft + x);
+            yPos.push_back(element.offsetTop + y);
+        }
+    }
+
+    this->image_ = VImage::composite(textImages, modes, VImage::option()->set("x", xPos)->set("y", yPos));
+    return elements.size();
+}
+
+void NativeImage::rebuildTextImageCache(const std::vector<NativeTextElement> &texts) {
+    this->imageElements_.clear();
+
+    for (const auto& text : texts) {
+        VImage textImage = newImageOfTextElement(text.text, text.fontFile, text.color, text.bgColor);
+        this->imageElements_.push_back(textImage);
+        std::clog << "Text " << text.text << "-Height: "  << textImage.height() << "x" << textImage.width() << std::endl;
+    }
+}
+
+void NativeImage::rebuildTextImageCache2(const std::vector<NativeTextElement> &texts, int trimLeft) {
+    this->imageElements_.clear();
+
+    for (const auto& text : texts) {
+        VImage textImage = newImageOfTextElement(text.text, text.fontFile, text.color, text.bgColor);
+
+        // Trim the left side of the image
+        if (trimLeft > 0) {
+            textImage = textImage.extract_area(trimLeft, 0, textImage.width() - trimLeft, textImage.height());
+        }
+
+        this->imageElements_.push_back(textImage);
+        std::clog << "Text " << text.text << "-Height: "  << textImage.height() << "x" << textImage.width() << std::endl;
+    }
 }
 
 VImage NativeImage::colored_text_image(const std::string &text, const ColoredTextOptions& options) {
@@ -460,6 +689,116 @@ VImage NativeImage::render_countdown_animation(const std::vector<int> &duration,
     gifData.set("delay", delayArray);
 
     return gifData;
+}
+
+NativeTextElement NativeImage::toNativeTextElement(const Napi::Object& options) {
+    NativeTextElement element;
+
+    if (!options.Has("text") || !options.Get("text").IsString()) {
+        throw std::invalid_argument("Missing text attribute");
+    }
+    element.text = options.Get("text").As<Napi::String>().Utf8Value();
+
+    if (options.Has("fontFile") && options.Get("fontFile").IsString()) {
+        element.fontFile = options.Get("fontFile").As<Napi::String>().Utf8Value();
+    }
+
+    if (!options.Has("color") || !options.Get("color").IsArray()) {
+        throw std::invalid_argument("Missing color attribute");
+    }
+    auto colorArray = options.Get("color").As<Napi::Array>();
+    if (colorArray.Length() != 3) {
+        throw std::invalid_argument("color must be an array of 3 elements");
+    }
+    for (uint32_t i = 0; i < colorArray.Length(); i++) {
+        if (!colorArray.Get(i).IsNumber()) {
+            throw std::invalid_argument("color must be an array of 3 numbers");
+        }
+        element.color[i] = colorArray.Get(i).As<Napi::Number>().DoubleValue();
+    }
+
+    if (!options.Has("bgColor") || !options.Get("bgColor").IsArray()) {
+        throw std::invalid_argument("Missing bgColor attribute");
+    }
+    auto bgColorArray = options.Get("bgColor").As<Napi::Array>();
+    if (bgColorArray.Length() != 3) {
+        throw std::invalid_argument("bgColor must be an array of 3 elements");
+    }
+    for (uint32_t i = 0; i < bgColorArray.Length(); i++) {
+        if (!bgColorArray.Get(i).IsNumber()) {
+            throw std::invalid_argument("bgColor must be an array of 3 numbers");
+        }
+        element.bgColor[i] = bgColorArray.Get(i).As<Napi::Number>().DoubleValue();
+    }
+
+    if (!options.Has("containerWidth") || !options.Get("containerWidth").IsNumber()) {
+        throw std::invalid_argument("Missing containerWidth attribute");
+    }
+    element.containerWidth = options.Get("containerWidth").As<Napi::Number>().Int32Value();
+
+    if (!options.Has("containerHeight") || !options.Get("containerHeight").IsNumber()) {
+        throw std::invalid_argument("Missing containerHeight attribute");
+    }
+    element.containerHeight = options.Get("containerHeight").As<Napi::Number>().Int32Value();
+
+    if (options.Has("offsetTop") && options.Get("offsetTop").IsNumber()) {
+        element.offsetTop = options.Get("offsetTop").As<Napi::Number>().Int32Value();
+    }
+
+    if (options.Has("offsetLeft") && options.Get("offsetLeft").IsNumber()) {
+        element.offsetLeft = options.Get("offsetLeft").As<Napi::Number>().Int32Value();
+    }
+
+    if (options.Has("cacheIndex") && options.Get("cacheIndex").IsNumber()) {
+        element.cacheIndex = options.Get("cacheIndex").As<Napi::Number>().Int32Value();
+    }
+
+    return element;
+}
+
+NativeTextImageOptions NativeImage::toNativeTextImageOptions(const Napi::Object& options) {
+    NativeTextImageOptions textOptions;
+
+    if (!options.Has("width") || !options.Get("width").IsNumber()) {
+        throw std::invalid_argument("Missing width attribute");
+    }
+    textOptions.width = options.Get("width").As<Napi::Number>().Int32Value();
+
+    if (!options.Has("height") || !options.Get("height").IsNumber()) {
+        throw std::invalid_argument("Missing height attribute");
+    }
+    textOptions.height = options.Get("height").As<Napi::Number>().Int32Value();
+
+    if (!options.Has("bgColor") || !options.Get("bgColor").IsArray()) {
+        throw std::invalid_argument("Missing bgColor attribute");
+    }
+    auto bgColorArray = options.Get("bgColor").As<Napi::Array>();
+    if (bgColorArray.Length() != 3) {
+        throw std::invalid_argument("bgColor must be an array of 3 elements");
+    }
+    for (uint32_t i = 0; i < bgColorArray.Length(); i++) {
+        if (!bgColorArray.Get(i).IsNumber()) {
+            throw std::invalid_argument("bgColor must be an array of 3 numbers");
+        }
+        textOptions.bgColor[i] = bgColorArray.Get(i).As<Napi::Number>().DoubleValue();
+    }
+    std::clog << "bgColor: " << textOptions.bgColor.size() << textOptions.bgColor[0] << " " << textOptions.bgColor[1] << " " << textOptions.bgColor[2] << std::endl;
+
+    if (!options.Has("texts") || !options.Get("texts").IsArray()) {
+        throw std::invalid_argument("Missing texts attribute");
+    }
+    auto textArray = options.Get("texts").As<Napi::Array>();
+    for (uint32_t i = 0; i < textArray.Length(); i++) {
+        if (!textArray.Get(i).IsObject()) {
+            throw std::invalid_argument("texts must be an array of objects");
+        }
+        Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
+        NativeTextElement element = toNativeTextElement(textObj);
+        textOptions.texts.push_back(element);
+    }
+    std::clog << "texts: " << textOptions.texts.size() << std::endl;
+
+    return textOptions;
 }
 
 CreationOptions NativeImage::parse_creation_options(const Napi::Object& options) {
