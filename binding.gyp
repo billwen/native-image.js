@@ -9,6 +9,7 @@
             "cflags!": [ "-fno-exceptions" ],
             "cflags_cc!": [ "-fno-exceptions"],
             "sources": [
+                "src/jsobj_to_internal.cc",
                 "src/utils.cc",
                 "src/native_image.cc",
                 "src/main.cc",

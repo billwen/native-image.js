@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {CountdownOptions, HexadecimalColor, NativeImage, TextElement, TextImageOptions} from '../../index';
+import {
+    CountdownOptions,
+    HexadecimalColor,
+    NativeImage,
+    TextElement,
+    TextImageOptions
+} from '../../index';
 
 // Prepare output folder
 const outputFolder = "../../output";
@@ -15,8 +21,7 @@ const textImageOutputFilePath = path.resolve(outputFolderPath, "text-image.png")
 
 const labelColor: HexadecimalColor = "#ffffff";
 const digitColor: HexadecimalColor = "#ffffff";
-const labelFont = "Noto IKEA Latin Regular 16pt";
-const digitFont = "Noto IKEA Latin Bold 32pt";
+
 const fontRegularFile = path.resolve(__dirname, "../../output/fonts/NotoIKEALatin-Regular.ttf");
 const fontBoldFile = path.resolve(__dirname, "../../output/fonts/NotoIKEALatin-Bold.ttf");
 console.log(`Bold font: ${fontBoldFile} - Regular font: ${fontRegularFile}`)
@@ -188,6 +193,7 @@ const elements = digits.map((i) => `<span size='32pt' face='Noto IKEA Latin' wei
 const elements2 = digits.map((i) => `<span size='32pt' face='Noto IKEA Latin' weight='bold'>0${i}</span>`)
     .map((i) => ({
         ...dd,
+        bgColor: [204, 204, 8],
         text: i
     }));
 
@@ -203,6 +209,11 @@ const Output4FilePath = path.resolve(outputFolderPath, "output4.png");
 
 const template4 = NativeImage.newTextImage(options4);
 template4.rebuildTextElementCache2(elements2, 18);
+
+// convert html hex color to 3 integers
+// const hexToRgb = (hex: string): number[] => {
+//     return hex.match(/[A-Za-z0-9]{2}/g).map((i) => parseInt(i, 16));
+// }
 
 
 const dd4: TextElement = {
@@ -231,3 +242,100 @@ const pt4 = Date.now() - start4;
 console.log(`Processing time of add Text image ${pt4} ms`);
 
 template4.save(Output4FilePath);
+
+// Generate a 60 frames countdown animation
+const countdown2FilePath = path.resolve(outputFolderPath, "countdown_2.gif");
+
+// Define styles
+const redStyle: TextImageOptions = {
+    width: 273,
+    height: 71,
+    bgColor: [204, 0, 8],
+    texts: [days, hrs, min, sec]
+};
+
+const redStyleDigitStyle: TextElement = {
+    text: "<span size='32pt' face='Noto IKEA Latin' weight='bold'>00</span>",
+    fontFile: fontBoldFile,
+    color: [255, 255, 255],
+    bgColor: [204, 0, 8],
+    containerHeight: 40,
+    containerWidth: 60,
+};
+
+const digitElements = Array.from(["days", "hours", "minutes", "seconds"]);
+const digitsStyle = {
+    days: {
+        ...redStyleDigitStyle,
+        offsetTop: 0,
+        offsetLeft: 0
+    },
+    hours: {
+        ...redStyleDigitStyle,
+        offsetTop: 0,
+        offsetLeft: 71
+    },
+    minutes: {
+        ...redStyleDigitStyle,
+        offsetTop: 0,
+        offsetLeft: 142
+    },
+    seconds: {
+        ...redStyleDigitStyle,
+        offsetTop: 0,
+        offsetLeft: 213
+    }
+}
+
+const redStyleDigits: TextElement[] = Array.from(Array(100).keys()).map((i) => ({
+    ...redStyleDigitStyle,
+    text: `<span size='32pt' face='Noto IKEA Latin' weight='bold'>${`000${i}`.slice(-3)}</span>`
+}));
+
+//
+// Return
+function secondsToCountdownElements(secs: number): {days: number, hours: number, minutes: number, seconds: number} {
+    const days = Math.floor(secs / (3600 * 24));
+    const hours = Math.floor(secs % (3600 * 24) / 3600);
+    const minutes = Math.floor(secs % 3600 / 60);
+    const seconds = Math.floor(secs % 60);
+
+    return {
+        days,
+        hours,
+        minutes,
+        seconds
+    };
+}
+
+const endDateTime = new Date("2024-10-01T00:00:00.000Z");
+console.log(`End date time: ${endDateTime}`);
+const now = new Date();
+const diff = endDateTime.getTime() - now.getTime();
+const seconds = Math.floor(diff / 1000);
+
+
+const framesData = Array.from(Array(60).keys()).map<TextElement[]>((i) => {
+    const countdownElements = secondsToCountdownElements(seconds - i);
+    return digitElements.map<TextElement>((key) => {
+        const k = key as keyof typeof countdownElements;
+        const digit = countdownElements[k] ?? 0;
+        return {
+            ...digitsStyle[k],
+            text: `<span size='32pt' face='Noto IKEA Latin' weight='bold'>${`000${digit}`.slice(-3)}</span>`,
+            cacheIndex: digit
+        };
+    });
+});
+
+// Prepare the template
+console.log(`Start generate countdown animation ${framesData.length} frames - ${countdown2FilePath}`);
+const redStyleTemplate = NativeImage.newTextImage(redStyle);
+redStyleTemplate.rebuildTextElementCache2(redStyleDigits, 18);
+
+// Start generate
+const start5 = Date.now();
+redStyleTemplate.animation(framesData,countdown2FilePath);
+const pt5 = Date.now() - start5;
+console.log(`Processing time of countdown animation ${pt5} ms - ${framesData.length} frames - ${countdown2FilePath}`);
+

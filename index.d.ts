@@ -88,6 +88,10 @@ export declare class NativeImage {
   static newTextImage(opts: TextImageOptions): NativeImage;
   rebuildTextElementCache(texts: TextElement[]): number;
   rebuildTextElementCache2(texts: TextElement[], trimLeftWidth: number): number;
+
+  animation(frames: TextElement[][]): Buffer;
+  animation(frames: TextElement[][], filePath: string): string;
+
   addTextElements(texts: TextElement[]): number;
 
   static createSRGBImage(opts: CreationOptions): NativeImage;
