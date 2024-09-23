@@ -28,7 +28,7 @@ NativeImage::NativeImage(const Napi::CallbackInfo& info): Napi::ObjectWrap<Nativ
         if (mode == static_cast<int>(ImageMode::TEXTIMAGE)) {
             this->mode_ = ImageMode::TEXTIMAGE;
             try {
-                NativeTextImageOptions textOptions = toNativeTextImageOptions(options);
+                NativeTextImageOption textOptions = toNativeTextImageOptions(options);
                 this->image_ = newImageWithTexts(textOptions);
             } catch (const std::exception& e) {
                 std::cerr << "Error: " << e.what() << std::endl;
@@ -78,7 +78,7 @@ Napi::Object NativeImage::Init(Napi::Env env, Napi::Object exports) {
 }
 
 //
-// Create an Text image
+// Create a Text image
 //
 Napi::Value NativeImage::NewTextImage(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
@@ -111,13 +111,13 @@ Napi::Value NativeImage::RebuildTextElementCache(const Napi::CallbackInfo& info)
     }
     Napi::Array textArray = info[0].As<Napi::Array>();
 
-    std::vector<ni::NativeTextElement> textElements;
+    std::vector<ni::NativeTextElementOption> textElements;
     for (uint32_t i = 0; i < textArray.Length(); i++) {
         if (!textArray.Get(i).IsObject()) {
             Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
         }
         Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
-        ni::NativeTextElement element = ni::toNativeTextElement(textObj);
+        ni::NativeTextElementOption element = ni::toNativeTextElement(textObj);
         textElements.push_back(element);
     }
 
@@ -139,13 +139,13 @@ Napi::Value NativeImage::RebuildTextElementCache2(const Napi::CallbackInfo& info
     }
     Napi::Array textArray = info[0].As<Napi::Array>();
 
-    std::vector<ni::NativeTextElement> textElements;
+    std::vector<ni::NativeTextElementOption> textElements;
     for (uint32_t i = 0; i < textArray.Length(); i++) {
         if (!textArray.Get(i).IsObject()) {
             Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
         }
         Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
-        NativeTextElement element = ni::toNativeTextElement(textObj);
+        NativeTextElementOption element = ni::toNativeTextElement(textObj);
         textElements.push_back(element);
     }
 
@@ -169,17 +169,16 @@ Napi::Value NativeImage::AddTextElements(const Napi::CallbackInfo& info) {
     }
     Napi::Array textArray = info[0].As<Napi::Array>();
 
-    std::vector<NativeTextElement> textElements;
+    std::vector<NativeTextElementOption> textElements;
     for (uint32_t i = 0; i < textArray.Length(); i++) {
         if (!textArray.Get(i).IsObject()) {
             Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
         }
         Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
-        NativeTextElement element = toNativeTextElement(textObj);
-        textElements.push_back(element);
+        textElements.push_back(toNativeTextElement(textObj));
     }
 
-    this->image_ = this->addTextElements(this->image_, textElements, this->imageElements_);
+    this->image_ = addTextElements(this->image_, textElements, this->imageElements_);
 
     return Napi::Number::New(env, textElements.size());
 }
@@ -208,7 +207,7 @@ Napi::Value NativeImage::Animation(const Napi::CallbackInfo& info) {
     }
 
     // Iterate
-    std::vector<std::vector<NativeTextElement>> frames;
+    std::vector<std::vector<NativeTextElementOption>> frames;
     frames.reserve(framesArray.Length());
     for (uint32_t i = 0; i < framesArray.Length(); i++) {
         if (!framesArray.Get(i).IsArray()) {
@@ -216,15 +215,14 @@ Napi::Value NativeImage::Animation(const Napi::CallbackInfo& info) {
         }
         Napi::Array frameArray = framesArray.Get(i).As<Napi::Array>();
 
-        std::vector<NativeTextElement> textElements;
+        std::vector<NativeTextElementOption> textElements;
         textElements.reserve(frameArray.Length());
         for (uint32_t j = 0; j < frameArray.Length(); j++) {
             if (!frameArray.Get(j).IsObject()) {
                 Napi::TypeError::New(env, "Invalid TextElement object").ThrowAsJavaScriptException();
             }
             Napi::Object textObj = frameArray.Get(j).As<Napi::Object>();
-            NativeTextElement element = toNativeTextElement(textObj);
-            textElements.push_back(element);
+            textElements.push_back(toNativeTextElement(textObj));
         }
 
         frames.push_back(textElements);
@@ -305,7 +303,7 @@ VImage NativeImage::newImageOfTextElement(const std::string &text, const std::st
     return VImage::text(text.c_str(), genOpts).ifthenelse(color, bgColor, VImage::option()->set("blend", true));
 }
 
-VImage NativeImage::newImageWithTexts(const NativeTextImageOptions &options) {
+VImage NativeImage::newImageWithTexts(const NativeTextImageOption &options) {
 
     // Draw background image
     VImage canvas = newImageWithBgColor(options.width, options.height, options.bgColor);
@@ -318,7 +316,7 @@ VImage NativeImage::newImageWithTexts(const NativeTextImageOptions &options) {
     return addTextElements(canvas, options.texts, elements);
 }
 
-VImage NativeImage::addTextElements(const VImage &canvas, const std::vector<NativeTextElement> &elements, const std::vector<VImage> &imageElements) {
+VImage NativeImage::addTextElements(const VImage &canvas, const std::vector<NativeTextElementOption> &elements, const std::vector<VImage> &imageElements) {
     std::vector<VImage> textImages;
     textImages.reserve(elements.size() + 1);
     std::vector<int> xPos;
@@ -351,7 +349,7 @@ VImage NativeImage::addTextElements(const VImage &canvas, const std::vector<Nati
 
 }
 
-void NativeImage::rebuildTextImageCache(const std::vector<NativeTextElement> &texts) {
+void NativeImage::rebuildTextImageCache(const std::vector<NativeTextElementOption> &texts) {
     this->imageElements_.clear();
 
     std::vector<std::pair<int, int>> sizes;
@@ -379,7 +377,7 @@ void NativeImage::rebuildTextImageCache(const std::vector<NativeTextElement> &te
     }
 }
 
-void NativeImage::rebuildTextImageCache2(const std::vector<NativeTextElement> &texts, int trimLeft) {
+void NativeImage::rebuildTextImageCache2(const std::vector<NativeTextElementOption> &texts, int trimLeft) {
     this->imageElements_.clear();
     this->imageElements_.reserve(texts.size());
 
@@ -415,7 +413,7 @@ void NativeImage::rebuildTextImageCache2(const std::vector<NativeTextElement> &t
     }
 }
 
-VImage NativeImage::illustrationAnimation(const std::vector<std::vector<NativeTextElement>> &frames) {
+VImage NativeImage::illustrationAnimation(const std::vector<std::vector<NativeTextElementOption>> &frames) {
     std::vector<VImage> pages;
     pages.reserve(frames.size());
 
@@ -424,7 +422,7 @@ VImage NativeImage::illustrationAnimation(const std::vector<std::vector<NativeTe
         pages.push_back(page);
     }
 
-    // Join a set of pages vertically to make a multipage image
+    // Join a set of pages vertically to make an image
     VImage animation = VImage::arrayjoin(pages, VImage::option()->set("across", 1));
     VImage gifData = animation.copy();
     gifData.set("page-height", this->image_.height());
