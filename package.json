@@ -1,6 +1,6 @@
 {
   "name": "@billwen/native-image",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "En låda som tar hand om bilder.",
   "main": "index.js",
   "gypfile": true,
@@ -10,7 +10,7 @@
     "clean": "node-gyp clean",
     "predev": "npm run build",
     "pretest": "npm run build",
-    "test": "ts-node test/ts/countdown.ts"
+    "test": "ts-node test/ts/memory-leak.ts"
   },
   "keywords": [
     "native",
@@ -28,7 +28,8 @@
   "license": "GPL-3.0",
   "devDependencies": {
     "node-gyp": "^10.2.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "inspector": "^0.5.0"
   },
   "dependencies": {
     "cmake-js": "^7.3.0",
