@@ -17,6 +17,11 @@ export type TextImageOption = {
     texts: TextElementOption[];
 };
 
+export type AnimationOption = {
+    delay: number | number[];
+    repeat: number;
+};
+
 export declare class NativeImage {
   constructor(filePath: string);
 
@@ -24,8 +29,8 @@ export declare class NativeImage {
   rebuildTextElementCache(texts: TextElementOption[]): number;
   rebuildTextElementCache2(texts: TextElementOption[], trimLeftWidth: number): number;
 
-  animation(frames: TextElementOption[][]): Buffer;
-  animation(frames: TextElementOption[][], filePath: string): string;
+  animation(frames: TextElementOption[][], opt?: AnimationOption): Buffer;
+  animation(frames: TextElementOption[][], filePath: string, opt?: AnimationOption): string;
 
   addTextElements(texts: TextElementOption[]): number;
 

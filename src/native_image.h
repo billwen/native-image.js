@@ -14,7 +14,7 @@ namespace ni {
         NUMBER_OF_MODES
     };
 
-    struct NativeTextElement {
+    struct NativeTextElementOption {
         std::string text;
         std::string fontFile;
         std::vector<double> color {0.0, 0.0, 0.0};
@@ -26,18 +26,24 @@ namespace ni {
         int cacheIndex {-1};
     };
 
-    struct NativeTextImageOptions {
+    struct NativeTextImageOption {
         int width {0};
         int height {0};
         std::vector<double> bgColor {255.0, 255.0, 255.0};
 
         // Texts on template
-        std::vector<NativeTextElement> texts;
+        std::vector<NativeTextElementOption> texts;
+    };
+
+    struct GifOption {
+        std::vector<int> delay;
+        int loop;
     };
 
     // Convert Napi::Object to native types
-    NativeTextElement        toNativeTextElement(const Napi::Object& options);
-    NativeTextImageOptions   toNativeTextImageOptions(const Napi::Object& options);
+    NativeTextElementOption  toNativeTextElement(const Napi::Object& options);
+    NativeTextImageOption    toNativeTextImageOptions(const Napi::Object& options);
+    GifOption                toGifOption(const Napi::Object& options);
 }
 
 class NativeImage: public Napi::ObjectWrap<NativeImage> {
@@ -56,15 +62,15 @@ class NativeImage: public Napi::ObjectWrap<NativeImage> {
     static vips::VImage newImageOfTextElement(const std::string &text, const std::string &fontFile, const std::vector<double> &color, const std::vector<double> &bgColor);
 
     // Create an text image with color
-    static vips::VImage newImageWithTexts(const ni::NativeTextImageOptions& options);
+    static vips::VImage newImageWithTexts(const ni::NativeTextImageOption &options);
 
-    static vips::VImage addTextElements(const vips::VImage &canvas, const std::vector<ni::NativeTextElement> &elements, const std::vector<vips::VImage> &imageElements);
+    static vips::VImage addTextElements(const vips::VImage &canvas, const std::vector<ni::NativeTextElementOption> &elements, const std::vector<vips::VImage> &imageElements);
 
     // rebuild the cache of images for performance
-    void rebuildTextImageCache(const std::vector<ni::NativeTextElement> &texts);
-    void rebuildTextImageCache2(const std::vector<ni::NativeTextElement> &texts, int trimLeft);
+    void rebuildTextImageCache(const std::vector<ni::NativeTextElementOption> &texts);
+    void rebuildTextImageCache2(const std::vector<ni::NativeTextElementOption> &texts, int trimLeft);
 
-    vips::VImage illustrationAnimation(const std::vector<std::vector<ni::NativeTextElement>> &frames);
+    vips::VImage illustrationAnimation(const std::vector<std::vector<ni::NativeTextElementOption>> &frames);
 
     static std::string save(const vips::VImage &image, const std::string &path);
 

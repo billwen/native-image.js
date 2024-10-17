@@ -2,8 +2,8 @@
 
 using namespace ni;
 
-NativeTextElement ni::toNativeTextElement(const Napi::Object& options) {
-    NativeTextElement element;
+NativeTextElementOption ni::toNativeTextElement(const Napi::Object& options) {
+    NativeTextElementOption element;
 
     if (!options.Has("text") || !options.Get("text").IsString()) {
         throw std::invalid_argument("Missing text attribute");
@@ -67,8 +67,8 @@ NativeTextElement ni::toNativeTextElement(const Napi::Object& options) {
     return element;
 }
 
-NativeTextImageOptions ni::toNativeTextImageOptions(const Napi::Object& options) {
-    NativeTextImageOptions textOptions;
+NativeTextImageOption ni::toNativeTextImageOptions(const Napi::Object& options) {
+    NativeTextImageOption textOptions;
 
     if (!options.Has("width") || !options.Get("width").IsNumber()) {
         throw std::invalid_argument("Missing width attribute");
@@ -103,9 +103,22 @@ NativeTextImageOptions ni::toNativeTextImageOptions(const Napi::Object& options)
             throw std::invalid_argument("texts must be an array of objects");
         }
         Napi::Object textObj = textArray.Get(i).As<Napi::Object>();
-        NativeTextElement element = toNativeTextElement(textObj);
+        NativeTextElementOption element = toNativeTextElement(textObj);
         textOptions.texts.push_back(element);
     }
 
     return textOptions;
+}
+
+GifOption ni::toGifOption(const Napi::Object& options) {
+    if (options.Has("delay") && options.Get("delay").IsArray()) {
+        auto delayArray = options.Get("delay").As<Napi::Array>();
+        std::vector<int> delay;
+        for (uint32_t i = 0; i < delayArray.Length(); i++) {
+            if (!delayArray.Get(i).IsNumber()) {
+                throw std::invalid_argument("delay must be an array of numbers");
+            }
+            delay.push_back(delayArray.Get(i).As<Napi::Number>().Int32Value());
+        }
+    }
 }
